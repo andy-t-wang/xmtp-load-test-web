@@ -20,7 +20,7 @@ NUM_GROUPS=${5-10}
 MESSAGES_PER_GROUP_PER_BATCH=${6-3}
 TEST_ID=${7-"test_$(date +%s)"}
 
-CMD="./target/release/xdbg -b $NETWORK"
+CMD="${XDBG_PATH:-./target/release/xdbg} -b $NETWORK"
 
 # Output files
 RESULTS_FILE="results_${TEST_ID}.json"
@@ -40,13 +40,9 @@ echo "----------------------------------------" | tee -a $LOGS_FILE
 START_TIME=$(date +%s)
 START_TIME_ISO=$(date -Iseconds)
 
-# Build xdbg
-echo "Building xdbg..." | tee -a $LOGS_FILE
-cargo build --release --bin xdbg 2>&1 | tee -a $LOGS_FILE
-
-# Clear and initialize
+# Clear and initialize (xdbg already built in previous step)
 echo "Initializing..." | tee -a $LOGS_FILE
-./target/release/xdbg --clear 2>&1 | tee -a $LOGS_FILE
+${XDBG_PATH:-./target/release/xdbg} --clear 2>&1 | tee -a $LOGS_FILE
 $CMD --clear 2>&1 | tee -a $LOGS_FILE
 
 # Generate identities for group members

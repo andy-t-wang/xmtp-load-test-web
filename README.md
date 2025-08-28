@@ -1,6 +1,6 @@
 # XMTP Load Test Web UI
 
-A web interface for running XMTP load tests using GitHub Actions.
+A standalone web interface for running XMTP load tests using GitHub Actions. This tool automatically fetches the latest libxmtp source code and builds the necessary testing tools.
 
 ## Features
 
@@ -9,15 +9,16 @@ A web interface for running XMTP load tests using GitHub Actions.
 - **Real-time Status**: Monitor test progress and view results
 - **Test History**: View previous test runs and compare results
 - **Flexible Parameters**: Configure groups, messages, duration, and more
+- **Standalone**: Automatically fetches libxmtp source - no need to fork the main repo
 
 ## Architecture
 
 ```
-Vercel (Web UI) → GitHub Actions → xdbg (Load Test)
+Vercel (Web UI) → GitHub Actions → Clone libxmtp → Build xdbg → Run Load Test
 ```
 
 1. **Vercel**: Hosts the Next.js web application
-2. **GitHub Actions**: Executes the load test scripts
+2. **GitHub Actions**: Clones libxmtp and builds xdbg fresh for each test
 3. **xdbg**: The XMTP debug tool that performs the actual testing
 
 ## Setup
@@ -38,8 +39,8 @@ cp .env.example .env.local
 
 For Vercel deployment, set these environment variables:
 - `GITHUB_TOKEN`: Your GitHub personal access token
-- `GITHUB_OWNER`: Repository owner (default: worldcoin)  
-- `GITHUB_REPO`: Repository name (default: libxmtp)
+- `GITHUB_OWNER`: Your GitHub username (e.g., "andy-wang")  
+- `GITHUB_REPO`: Your repository name (e.g., "xmtp-load-test")
 
 ### 3. Install Dependencies
 

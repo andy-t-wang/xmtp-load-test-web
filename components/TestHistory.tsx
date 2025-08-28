@@ -14,6 +14,8 @@ interface TestRun {
   groups?: number
   network?: string
   inboxId?: string
+  githubUrl?: string
+  failureReason?: string
 }
 
 export default function TestHistory() {
@@ -98,29 +100,66 @@ export default function TestHistory() {
                   </div>
                 </div>
               )}
+              {test.status === 'failed' && (
+                <div className="text-sm">
+                  <div className="font-mono text-red-600">
+                    Failed
+                  </div>
+                  {test.failureReason && (
+                    <div className="text-xs text-gray-500">
+                      {test.failureReason}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
-          {test.status === 'completed' && (
-            <div className="mt-3 grid grid-cols-4 gap-4 text-xs text-gray-600">
-              <div>
-                <span className="font-medium">Duration:</span>
-                <div className="font-mono">{test.duration}s</div>
-              </div>
-              <div>
-                <span className="font-medium">Groups:</span>
-                <div className="font-mono">{test.groups}</div>
-              </div>
-              <div>
-                <span className="font-medium">Network:</span>
-                <div className="font-mono">{test.network}</div>
-              </div>
-              <div>
-                <span className="font-medium">Inbox:</span>
-                <div className="font-mono text-xs">
-                  {test.inboxId?.slice(0, 8)}...
+          {(test.status === 'completed' || test.status === 'failed') && (
+            <div className="mt-3">
+              {test.status === 'completed' && (
+                <div className="grid grid-cols-4 gap-4 text-xs text-gray-600">
+                  <div>
+                    <span className="font-medium">Duration:</span>
+                    <div className="font-mono">{test.duration}s</div>
+                  </div>
+                  <div>
+                    <span className="font-medium">Groups:</span>
+                    <div className="font-mono">{test.groups}</div>
+                  </div>
+                  <div>
+                    <span className="font-medium">Network:</span>
+                    <div className="font-mono">{test.network}</div>
+                  </div>
+                  <div>
+                    <span className="font-medium">Inbox:</span>
+                    <div className="font-mono text-xs">
+                      {test.inboxId?.slice(0, 8)}...
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
+              
+              {test.status === 'failed' && (
+                <div className="bg-red-50 p-3 rounded text-xs">
+                  <div className="text-red-800 font-medium mb-1">Test Failed</div>
+                  {test.failureReason && (
+                    <div className="text-red-700 mb-2">
+                      Reason: {test.failureReason}
+                    </div>
+                  )}
+                  {test.githubUrl && (
+                    <a 
+                      href={test.githubUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-red-600 hover:text-red-800 underline"
+                    >
+                      View workflow run →
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -17,6 +17,9 @@ interface TestResult {
   messagesPerSecond?: number;
   groups?: number;
   logs?: string[];
+  githubUrl?: string;
+  failureReason?: string;
+  conclusion?: string;
 }
 
 export default function TestStatus({ testId, onComplete }: TestStatusProps) {
@@ -133,22 +136,44 @@ export default function TestStatus({ testId, onComplete }: TestStatusProps) {
 
       {result.status === "failed" && (
         <div className="bg-red-50 p-4 rounded-lg">
-          <div className="text-sm text-red-700">
-            Test failed. Check the GitHub Actions log for details.
+          <h4 className="font-medium text-red-800 mb-2">Test Failed</h4>
+          <div className="text-sm text-red-700 space-y-2">
+            {result.failureReason && (
+              <div>
+                <span className="font-medium">Reason:</span> {result.failureReason}
+              </div>
+            )}
+            <div>
+              Check the GitHub Actions log for detailed error information.
+            </div>
+            {result.githubUrl && (
+              <div>
+                <a 
+                  href={result.githubUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-red-600 hover:text-red-800 underline"
+                >
+                  View workflow run →
+                </a>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      <div className="text-xs text-gray-500">
-        <a
-          href={`https://github.com/andy-t-wang/xmtp-load-test-web`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 hover:text-blue-800"
-        >
-          View on GitHub Actions →
-        </a>
-      </div>
+      {!result.githubUrl && (
+        <div className="text-xs text-gray-500">
+          <a
+            href={`https://github.com/${process.env.NEXT_PUBLIC_GITHUB_OWNER || 'your-username'}/${process.env.NEXT_PUBLIC_GITHUB_REPO || 'xmtp-load-test-web'}/actions`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800"
+          >
+            View on GitHub Actions →
+          </a>
+        </div>
+      )}
     </div>
   );
 }
