@@ -20,16 +20,14 @@ interface TestResult {
   githubUrl?: string;
   failureReason?: string;
   conclusion?: string;
+  message?: string;
 }
 
 export default function TestStatus({ testId, onComplete }: TestStatusProps) {
   const [result, setResult] = useState<TestResult>({ status: "running" });
-  const [elapsedTime, setElapsedTime] = useState(0);
   const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
-    const startTime = Date.now();
-
     const checkStatus = async () => {
       try {
         console.log(`Checking status for test: ${testId}`);
@@ -51,11 +49,6 @@ export default function TestStatus({ testId, onComplete }: TestStatusProps) {
       }
     };
 
-    // Update elapsed time
-    const timeInterval = setInterval(() => {
-      setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
-    }, 1000);
-
     // Check status every 5 seconds
     const statusInterval = setInterval(checkStatus, 5000);
 
@@ -63,7 +56,6 @@ export default function TestStatus({ testId, onComplete }: TestStatusProps) {
     checkStatus();
 
     return () => {
-      clearInterval(timeInterval);
       clearInterval(statusInterval);
     };
   }, [testId, onComplete]);
@@ -110,7 +102,15 @@ export default function TestStatus({ testId, onComplete }: TestStatusProps) {
   const getStatusText = () => {
     switch (result.status) {
       case "running":
-        return `Running... (${elapsedTime}s)`;
+        // Show actual duration if we have start time from GitHub, otherwise just "Running..."
+        if (result.startTime) {
+          const actualElapsed = Math.floor((Date.now() - new Date(result.startTime).getTime()) / 1000);
+          return `Running... (${actualElapsed}s)`;
+        } else if (result.message) {
+          return `${result.message}`;
+        } else {
+          return "Running...";
+        }
       case "completed":
         return "Completed";
       case "failed":

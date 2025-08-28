@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Play, Loader2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Play, Loader2, Share2, Check } from 'lucide-react'
 
 interface TestFormProps {
   onTestStart: (testId: string) => void
@@ -10,6 +10,7 @@ interface TestFormProps {
 
 export default function TestForm({ onTestStart, disabled }: TestFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showCopied, setShowCopied] = useState(false)
   const [formData, setFormData] = useState({
     inboxId: '',
     network: 'dev',
@@ -18,6 +19,31 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
     interval: '1',
     messagesPerBatch: '3'
   })
+
+  // Load form data from URL parameters on component mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const updatedFormData = { ...formData }
+    
+    // Map URL parameters to form fields
+    const paramMap = {
+      inbox: 'inboxId',
+      network: 'network',
+      duration: 'duration',
+      groups: 'numGroups',
+      interval: 'interval',
+      messages: 'messagesPerBatch'
+    }
+    
+    Object.entries(paramMap).forEach(([urlParam, formField]) => {
+      const value = urlParams.get(urlParam)
+      if (value) {
+        updatedFormData[formField as keyof typeof formData] = value
+      }
+    })
+    
+    setFormData(updatedFormData)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -47,10 +73,54 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData(prev => ({
-      ...prev,
+    const newFormData = {
+      ...formData,
       [e.target.name]: e.target.value
-    }))
+    }
+    setFormData(newFormData)
+    
+    // Update URL parameters
+    updateUrlParams(newFormData)
+  }
+
+  const updateUrlParams = (data: typeof formData) => {
+    const url = new URL(window.location.href)
+    const params = url.searchParams
+    
+    // Map form fields to URL parameters
+    const paramMap = {
+      inboxId: 'inbox',
+      network: 'network',
+      duration: 'duration',
+      numGroups: 'groups',
+      interval: 'interval',
+      messagesPerBatch: 'messages'
+    }
+    
+    Object.entries(paramMap).forEach(([formField, urlParam]) => {
+      const value = data[formField as keyof typeof data]
+      if (value) {
+        params.set(urlParam, value)
+      } else {
+        params.delete(urlParam)
+      }
+    })
+    
+    // Update URL without page reload
+    window.history.replaceState({}, '', url.toString())
+  }
+
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setShowCopied(true)
+      setTimeout(() => setShowCopied(false), 2000)
+    } catch (error) {
+      console.error('Failed to copy URL:', error)
+      // Fallback: select the URL text
+      const url = window.location.href
+      prompt('Copy this URL to share the test configuration:', url)
+    }
   }
 
   return (
@@ -164,18 +234,44 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
         </div>
       </div>
 
-      <button
-        type="submit"
-        disabled={disabled || isSubmitting}
-        className="w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {isSubmitting ? (
-          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-        ) : (
-          <Play className="w-4 h-4 mr-2" />
-        )}
-        {isSubmitting ? 'Starting Test...' : 'Start Load Test'}
-      </button>
+      <div className="flex space-x-3">
+        <button
+          type="submit"
+          disabled={disabled || isSubmitting}
+          className="flex-1 flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isSubmitting ? (
+            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+          ) : (
+            <Play className="w-4 h-4 mr-2" />
+          )}
+          {isSubmitting ? 'Starting Test...' : 'Start Load Test'}
+        </button>
+        
+        <button
+          type="button"
+          onClick={handleShare}
+          disabled={disabled}
+          className="flex items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Copy shareable URL with current test configuration"
+        >
+          {showCopied ? (
+            <Check className="w-4 h-4 text-green-600" />
+          ) : (
+            <Share2 className="w-4 h-4" />
+          )}
+        </button>
+      </div>
+      
+      {showCopied && (
+        <div className="text-center text-sm text-green-600">
+          ✅ URL copied to clipboard! Share this link to reproduce the same test configuration.
+        </div>
+      )}
+      
+      <div className="text-xs text-gray-500 text-center">
+        💡 Use the share button to copy a URL with all test parameters for easy reproduction
+      </div>
     </form>
   )
 }

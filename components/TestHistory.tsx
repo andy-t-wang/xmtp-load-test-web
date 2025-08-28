@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { formatDistanceToNow } from 'date-fns'
-import { Clock, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react'
+import { Clock, CheckCircle, AlertCircle, ExternalLink, RefreshCw } from 'lucide-react'
 
 interface TestRun {
   id: string
@@ -18,34 +18,51 @@ interface TestRun {
   failureReason?: string
 }
 
-export default function TestHistory() {
+interface TestHistoryProps {
+  onTestSelect: (testId: string) => void
+  selectedTestId?: string | null
+}
+
+export default function TestHistory({ onTestSelect, selectedTestId }: TestHistoryProps) {
   const [tests, setTests] = useState<TestRun[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const response = await fetch('/api/history')
-        
-        if (response.ok) {
-          const data = await response.json()
-          setTests(data.tests || [])
-          setError(null)
-        } else {
-          const errorData = await response.json().catch(() => ({}))
-          setError(`Failed to load test history: ${errorData.error || 'Unknown error'}`)
-        }
-      } catch (error) {
-        console.error('Error fetching test history:', error)
-        setError('Network error while loading test history')
-      } finally {
-        setLoading(false)
-      }
+  const fetchHistory = async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true)
+    } else {
+      setLoading(true)
     }
+    
+    try {
+      const response = await fetch('/api/history')
+      
+      if (response.ok) {
+        const data = await response.json()
+        setTests(data.tests || [])
+        setError(null)
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        setError(`Failed to load test history: ${errorData.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error fetching test history:', error)
+      setError('Network error while loading test history')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
 
+  useEffect(() => {
     fetchHistory()
   }, [])
+
+  const handleRefresh = () => {
+    fetchHistory(true)
+  }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -96,18 +113,55 @@ export default function TestHistory() {
   }
 
   return (
-    <div className="space-y-4">
-      {tests.slice(0, 10).map((test) => (
-        <div
-          key={test.id}
-          className="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow"
+    <>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-medium leading-6 text-gray-900">
+          Test History
+        </h3>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+          title="Refresh test history"
         >
+          <RefreshCw className={`w-4 h-4 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Refreshing...' : 'Refresh'}
+        </button>
+      </div>
+      
+      <div className="space-y-4">
+      {tests.slice(0, 10).map((test) => {
+        const isSelected = selectedTestId === test.id
+        const isClickable = test.status === 'running' || test.status === 'completed' || test.status === 'failed'
+        
+        return (
+          <div
+            key={test.id}
+            onClick={() => isClickable && onTestSelect(test.id)}
+            className={`border rounded-lg p-4 transition-all ${
+              isSelected 
+                ? 'border-blue-500 bg-blue-50 shadow-sm' 
+                : 'border-gray-200 hover:shadow-sm hover:border-gray-300'
+            } ${
+              isClickable ? 'cursor-pointer' : 'cursor-default'
+            }`}
+          >
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               {getStatusIcon(test.status)}
               <div>
-                <div className="font-medium text-sm">
+                <div className="font-medium text-sm flex items-center">
                   Test {test.id.split('_')[2]}
+                  {isSelected && (
+                    <span className="ml-2 text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">
+                      Selected
+                    </span>
+                  )}
+                  {test.status === 'running' && !isSelected && (
+                    <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                      Click to monitor
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs text-gray-500">
                   {formatDistanceToNow(new Date(test.startTime))} ago
@@ -188,14 +242,22 @@ export default function TestHistory() {
               )}
             </div>
           )}
-        </div>
-      ))}
+          </div>
+        )
+      })}
 
       {tests.length > 10 && (
         <div className="text-center text-sm text-gray-500">
           Showing 10 most recent tests
         </div>
       )}
-    </div>
+      
+      {tests.filter(t => t.status === 'running').length > 0 && (
+        <div className="text-center text-sm text-blue-600">
+          💡 Click on running or completed tests above to view their status
+        </div>
+      )}
+      </div>
+    </>
   )
 }
