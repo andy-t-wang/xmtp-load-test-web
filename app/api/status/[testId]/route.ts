@@ -37,14 +37,67 @@ export async function GET(
 
     const runsData = await runsResponse.json()
     
-    // Find the run for this test ID
-    const testRun = runsData.workflow_runs?.find((run: any) => 
-      run.name?.includes(testId) || 
-      run.head_commit?.message?.includes(testId)
-    )
+    console.log(`Looking for test ID: ${testId}`)
+    console.log(`Found ${runsData.workflow_runs?.length || 0} workflow runs`)
+    
+    // Find the run for this test ID - check multiple places where test ID might appear
+    const testRun = runsData.workflow_runs?.find((run: any) => {
+      const hasTestIdInName = run.name?.includes(testId)
+      const hasTestIdInCommitMessage = run.head_commit?.message?.includes(testId)
+      const hasTestIdInDisplayTitle = run.display_title?.includes(testId)
+      
+      // Check if created recently (within last 10 minutes) and triggered by workflow_dispatch
+      const isRecent = run.created_at && 
+        (Date.now() - new Date(run.created_at).getTime()) < 10 * 60 * 1000
+      const isManualTrigger = run.event === 'workflow_dispatch'
+      
+      console.log(`Run ${run.id}: name=${run.name}, event=${run.event}, created=${run.created_at}, recent=${isRecent}`)
+      
+      return hasTestIdInName || hasTestIdInCommitMessage || hasTestIdInDisplayTitle || 
+             (isRecent && isManualTrigger)
+    })
 
     if (!testRun) {
-      // If we can't find the run yet, return running status
+      // If we can't find a specific run, check if there are any recent workflow_dispatch runs
+      const recentRuns = runsData.workflow_runs?.filter((run: any) => 
+        run.event === 'workflow_dispatch' && 
+        run.created_at && 
+        (Date.now() - new Date(run.created_at).getTime()) < 5 * 60 * 1000 // Last 5 minutes
+      ).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      
+      if (recentRuns && recentRuns.length > 0) {
+        console.log(`Using most recent workflow run: ${recentRuns[0].id}`)
+        const mostRecentRun = recentRuns[0]
+        
+        let status: 'running' | 'completed' | 'failed'
+        switch (mostRecentRun.status) {
+          case 'completed':
+            status = mostRecentRun.conclusion === 'success' ? 'completed' : 'failed'
+            break
+          case 'in_progress':
+          case 'queued':
+            status = 'running'
+            break
+          default:
+            status = 'failed'
+        }
+        
+        return NextResponse.json({
+          status,
+          testId,
+          startTime: mostRecentRun.created_at,
+          endTime: mostRecentRun.updated_at,
+          duration: mostRecentRun.updated_at && mostRecentRun.created_at 
+            ? Math.floor((new Date(mostRecentRun.updated_at).getTime() - new Date(mostRecentRun.created_at).getTime()) / 1000)
+            : undefined,
+          githubUrl: mostRecentRun.html_url,
+          conclusion: mostRecentRun.conclusion,
+          failureReason: status === 'failed' ? mostRecentRun.conclusion || 'Unknown error' : undefined,
+        })
+      }
+      
+      // Still no run found, return running status
+      console.log(`No matching workflow run found for test ID: ${testId}`)
       return NextResponse.json({
         status: 'running',
         testId,

@@ -1,14 +1,14 @@
-name: XMTP Load Test
+name: XMTP Load Test - ${{ inputs.test_id || 'manual' }}
 
 on:
   workflow_dispatch:
     inputs:
       inbox_id:
-        description: 'Inbox ID to add to groups'
+        description: "Inbox ID to add to groups"
         required: true
         type: string
       network:
-        description: 'Network to use'
+        description: "Network to use"
         required: true
         type: choice
         options:
@@ -16,103 +16,113 @@ on:
           - local
           - staging
           - production
-        default: 'dev'
+        default: "dev"
       duration:
-        description: 'Test duration in seconds'
+        description: "Test duration in seconds"
         required: true
         type: string
-        default: '30'
+        default: "30"
       num_groups:
-        description: 'Number of groups to create'
+        description: "Number of groups to create"
         required: true
         type: string
-        default: '10'
+        default: "10"
       interval:
-        description: 'Seconds between message batches'
+        description: "Seconds between message batches"
         required: true
         type: string
-        default: '1'
+        default: "1"
       messages_per_batch:
-        description: 'Messages per group per batch'
+        description: "Messages per group per batch"
         required: true
         type: string
-        default: '3'
+        default: "3"
       test_id:
-        description: 'Unique test identifier'
+        description: "Unique test identifier"
         required: true
         type: string
 
 jobs:
   load-test:
+    name: "Load Test ${{ inputs.test_id }}"
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    
+
     steps:
-    - name: Checkout this repo
-      uses: actions/checkout@v4
-      
-    - name: Clone libxmtp
-      run: |
-        git clone https://github.com/worldcoin/libxmtp.git
-        cd libxmtp
-        echo "LIBXMTP_PATH=$(pwd)" >> $GITHUB_ENV
-      
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y jq bc
-        
-    - name: Setup Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        profile: minimal
-        override: true
-        
-    - name: Cache Rust dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          libxmtp/target
-        key: ${{ runner.os }}-cargo-libxmtp-${{ hashFiles('libxmtp/**/Cargo.lock') }}
-        
-    - name: Build xdbg
-      run: |
-        cd libxmtp
-        cargo build --release --bin xdbg
-      
-    - name: Run Load Test
-      id: load_test
-      env:
-        INBOX_ID: ${{ inputs.inbox_id }}
-        NETWORK: ${{ inputs.network }}
-        DURATION: ${{ inputs.duration }}
-        NUM_GROUPS: ${{ inputs.num_groups }}
-        INTERVAL: ${{ inputs.interval }}
-        MESSAGES_PER_BATCH: ${{ inputs.messages_per_batch }}
-        TEST_ID: ${{ inputs.test_id }}
-        XDBG_PATH: ${{ env.LIBXMTP_PATH }}/target/release/xdbg
-      run: |
-        chmod +x load_test_json.sh
-        ./load_test_json.sh "$INBOX_ID" "$NETWORK" "$INTERVAL" "$DURATION" "$NUM_GROUPS" "$MESSAGES_PER_BATCH" "$TEST_ID"
-        
-    - name: Upload Results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: load-test-results-${{ inputs.test_id }}
-        path: |
-          results_${{ inputs.test_id }}.json
-          logs_${{ inputs.test_id }}.txt
-        retention-days: 7
-        
-    - name: Comment on Results
-      if: always()
-      run: |
-        echo "Load test completed for test ID: ${{ inputs.test_id }}"
-        if [ -f "results_${{ inputs.test_id }}.json" ]; then
-          echo "Results:"
-          cat results_${{ inputs.test_id }}.json
-        fi
+      - name: Print Test Info
+        run: |
+          echo "🧪 Starting XMTP Load Test"
+          echo "Test ID: ${{ inputs.test_id }}"
+          echo "Network: ${{ inputs.network }}"
+          echo "Duration: ${{ inputs.duration }}s"
+          echo "Groups: ${{ inputs.num_groups }}"
+          echo "Inbox ID: ${{ inputs.inbox_id }}"
+
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Clone libxmtp
+        run: |
+          git clone https://github.com/xmtp/libxmtp.git
+          cd libxmtp
+          echo "LIBXMTP_PATH=$(pwd)" >> $GITHUB_ENV
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq bc
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            libxmtp/target
+          key: ${{ runner.os }}-cargo-libxmtp-${{ hashFiles('libxmtp/**/Cargo.lock') }}
+
+      - name: Build xdbg
+        run: |
+          cd libxmtp
+          cargo build --release --bin xdbg
+
+      - name: Run Load Test
+        id: load_test
+        env:
+          INBOX_ID: ${{ inputs.inbox_id }}
+          NETWORK: ${{ inputs.network }}
+          DURATION: ${{ inputs.duration }}
+          NUM_GROUPS: ${{ inputs.num_groups }}
+          INTERVAL: ${{ inputs.interval }}
+          MESSAGES_PER_BATCH: ${{ inputs.messages_per_batch }}
+          TEST_ID: ${{ inputs.test_id }}
+          XDBG_PATH: ${{ env.LIBXMTP_PATH }}/target/release/xdbg
+        run: |
+          chmod +x load_test_json.sh
+          ./load_test_json.sh "$INBOX_ID" "$NETWORK" "$INTERVAL" "$DURATION" "$NUM_GROUPS" "$MESSAGES_PER_BATCH" "$TEST_ID"
+
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: load-test-results-${{ inputs.test_id }}
+          path: |
+            results_${{ inputs.test_id }}.json
+            logs_${{ inputs.test_id }}.txt
+          retention-days: 7
+
+      - name: Comment on Results
+        if: always()
+        run: |
+          echo "Load test completed for test ID: ${{ inputs.test_id }}"
+          if [ -f "results_${{ inputs.test_id }}.json" ]; then
+            echo "Results:"
+            cat results_${{ inputs.test_id }}.json
+          fi

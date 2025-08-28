@@ -31,14 +31,19 @@ export default function TestStatus({ testId, onComplete }: TestStatusProps) {
 
     const checkStatus = async () => {
       try {
+        console.log(`Checking status for test: ${testId}`);
         const response = await fetch(`/api/status/${testId}`);
         if (response.ok) {
           const data = await response.json();
+          console.log(`Status response:`, data);
           setResult(data);
 
           if (data.status === "completed" || data.status === "failed") {
+            console.log(`Test ${testId} finished with status: ${data.status}`);
             onComplete();
           }
+        } else {
+          console.error(`Status check failed: ${response.status} ${response.statusText}`);
         }
       } catch (error) {
         console.error("Error checking status:", error);
