@@ -21,17 +21,24 @@ interface TestRun {
 export default function TestHistory() {
   const [tests, setTests] = useState<TestRun[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchHistory = async () => {
       try {
         const response = await fetch('/api/history')
+        
         if (response.ok) {
           const data = await response.json()
           setTests(data.tests || [])
+          setError(null)
+        } else {
+          const errorData = await response.json().catch(() => ({}))
+          setError(`Failed to load test history: ${errorData.error || 'Unknown error'}`)
         }
       } catch (error) {
-        console.error('Error fetching history:', error)
+        console.error('Error fetching test history:', error)
+        setError('Network error while loading test history')
       } finally {
         setLoading(false)
       }
@@ -57,6 +64,25 @@ export default function TestHistory() {
     return (
       <div className="text-center py-8 text-gray-500">
         Loading test history...
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <div className="text-red-600 mb-2">⚠️ {error}</div>
+        <button 
+          onClick={() => {
+            setLoading(true)
+            setError(null)
+            // Trigger a re-fetch by remounting the component
+            window.location.reload()
+          }}
+          className="text-blue-600 hover:text-blue-800 underline"
+        >
+          Try again
+        </button>
       </div>
     )
   }

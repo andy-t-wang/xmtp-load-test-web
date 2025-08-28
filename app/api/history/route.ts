@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
     const githubOwner = process.env.GITHUB_OWNER || 'andy-t-wang'
     const githubRepo = process.env.GITHUB_REPO || 'xmtp-load-test-web'
 
+
     if (!githubToken) {
       return NextResponse.json(
         { error: 'GitHub token not configured' },
@@ -13,9 +14,9 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get recent workflow runs for the load-test workflow
-    const runsResponse = await fetch(
-      `https://api.github.com/repos/${githubOwner}/${githubRepo}/actions/workflows/load-test.yml/runs?per_page=20`,
+    // First, get workflow ID like in status endpoint
+    const workflowsResponse = await fetch(
+      `https://api.github.com/repos/${githubOwner}/${githubRepo}/actions/workflows`,
       {
         headers: {
           'Authorization': `token ${githubToken}`,
@@ -23,6 +24,39 @@ export async function GET(request: NextRequest) {
         },
       }
     )
+
+    let workflowId = null
+    if (workflowsResponse.ok) {
+      const workflowsData = await workflowsResponse.json()
+      const loadTestWorkflow = workflowsData.workflows?.find((w: any) => 
+        w.name === 'XMTP Load Test' || w.path === '.github/workflows/load-test.yml'
+      )
+      workflowId = loadTestWorkflow?.id
+    }
+
+    // Get recent workflow runs for the load-test workflow
+    let runsResponse
+    if (workflowId) {
+      runsResponse = await fetch(
+        `https://api.github.com/repos/${githubOwner}/${githubRepo}/actions/workflows/${workflowId}/runs?per_page=20`,
+        {
+          headers: {
+            'Authorization': `token ${githubToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+          },
+        }
+      )
+    } else {
+      runsResponse = await fetch(
+        `https://api.github.com/repos/${githubOwner}/${githubRepo}/actions/workflows/load-test.yml/runs?per_page=20`,
+        {
+          headers: {
+            'Authorization': `token ${githubToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+          },
+        }
+      )
+    }
 
     if (!runsResponse.ok) {
       return NextResponse.json(
