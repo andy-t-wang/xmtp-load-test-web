@@ -84,10 +84,13 @@ send_messages_to_all_groups() {
     done
 }
 
+# Global variable to track if we should continue running
+KEEP_RUNNING=true
+
 # Trap for timeout
 timeout_handler() {
     echo "Test duration reached, stopping..." | tee -a $LOGS_FILE
-    cleanup_and_exit
+    KEEP_RUNNING=false
 }
 
 # Function to handle cleanup and exit
@@ -133,19 +136,25 @@ EOF
     echo "Results written to: $RESULTS_FILE" | tee -a $LOGS_FILE
     echo "Logs written to: $LOGS_FILE" | tee -a $LOGS_FILE
     
-    # Cleanup
+    # Cleanup background processes
+    if [ ! -z "${TIMEOUT_PID:-}" ]; then
+        kill $TIMEOUT_PID 2>/dev/null || true
+    fi
+    
     rm -f $EXPORT
     echo "Cleanup complete" | tee -a $LOGS_FILE
     
     exit 0
 }
 
-# Set up timeout
+# Set up timeout with better process handling
+echo "Setting up timeout for ${DURATION} seconds (PID will be stored)" | tee -a $LOGS_FILE
 (sleep $DURATION && timeout_handler) &
 TIMEOUT_PID=$!
+echo "Timeout process started with PID: $TIMEOUT_PID" | tee -a $LOGS_FILE
 
-# Trap Ctrl+C and timeout
-trap 'kill $TIMEOUT_PID 2>/dev/null; cleanup_and_exit' INT TERM
+# Trap Ctrl+C and other termination signals
+trap 'echo "Received termination signal" | tee -a $LOGS_FILE; KEEP_RUNNING=false; cleanup_and_exit' INT TERM EXIT
 
 # Main load test loop
 echo "----------------------------------------" | tee -a $LOGS_FILE
@@ -155,8 +164,8 @@ echo "Sending $MESSAGES_PER_GROUP_PER_BATCH messages to each of $NUM_GROUPS grou
 LOOP_COUNT=0
 TOTAL_MESSAGES=0
 
-# Run until timeout
-while true; do
+# Run until timeout or stopped
+while [ "$KEEP_RUNNING" = true ]; do
     LOOP_COUNT=$((LOOP_COUNT + 1))
     
     echo "Batch $LOOP_COUNT: Sending messages..." | tee -a $LOGS_FILE
@@ -168,12 +177,35 @@ while true; do
     MESSAGES_THIS_BATCH=$((NUM_GROUPS * MESSAGES_PER_GROUP_PER_BATCH))
     TOTAL_MESSAGES=$((TOTAL_MESSAGES + MESSAGES_THIS_BATCH))
     
-    # Progress update every 5 loops
-    if [ $((LOOP_COUNT % 5)) -eq 0 ]; then
-        ELAPSED=$(($(date +%s) - START_TIME))
-        echo "Progress: ${ELAPSED}s elapsed, sent $TOTAL_MESSAGES messages total (${LOOP_COUNT} batches)" | tee -a $LOGS_FILE
+    # Check if we should stop before the sleep
+    if [ "$KEEP_RUNNING" != true ]; then
+        break
     fi
     
-    # Sleep for the specified interval before next batch
-    sleep $INTERVAL
+    # Additional safety check: ensure we don't run past the duration even if timeout handler fails
+    CURRENT_ELAPSED=$(($(date +%s) - START_TIME))
+    if [ $CURRENT_ELAPSED -ge $DURATION ]; then
+        echo "Duration limit reached (${CURRENT_ELAPSED}s >= ${DURATION}s), stopping..." | tee -a $LOGS_FILE
+        KEEP_RUNNING=false
+        break
+    fi
+    
+    # Progress update every 5 loops, and also show remaining time
+    if [ $((LOOP_COUNT % 5)) -eq 0 ]; then
+        ELAPSED=$(($(date +%s) - START_TIME))
+        REMAINING=$((DURATION - ELAPSED))
+        echo "Progress: ${ELAPSED}s elapsed (${REMAINING}s remaining), sent $TOTAL_MESSAGES messages total (${LOOP_COUNT} batches)" | tee -a $LOGS_FILE
+    fi
+    
+    # Sleep for the specified interval before next batch, but check periodically if we should stop
+    for sleep_counter in $(seq 1 $INTERVAL); do
+        if [ "$KEEP_RUNNING" != true ]; then
+            break 2  # Break out of both sleep loop and main loop
+        fi
+        sleep 1
+    done
 done
+
+# If we exited the loop normally due to timeout, run cleanup
+echo "Main loop completed, running cleanup..." | tee -a $LOGS_FILE
+cleanup_and_exit

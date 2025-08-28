@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Clock, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { Clock, CheckCircle, AlertCircle, Loader2, Square } from "lucide-react";
 
 interface TestStatusProps {
   testId: string;
@@ -25,6 +25,7 @@ interface TestResult {
 export default function TestStatus({ testId, onComplete }: TestStatusProps) {
   const [result, setResult] = useState<TestResult>({ status: "running" });
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     const startTime = Date.now();
@@ -67,6 +68,34 @@ export default function TestStatus({ testId, onComplete }: TestStatusProps) {
     };
   }, [testId, onComplete]);
 
+  const handleCancel = async () => {
+    if (isCancelling) return;
+    
+    try {
+      setIsCancelling(true);
+      console.log(`Cancelling test: ${testId}`);
+      
+      const response = await fetch(`/api/cancel/${testId}`, {
+        method: 'POST',
+      });
+      
+      if (response.ok) {
+        console.log(`Successfully cancelled test: ${testId}`);
+        setResult(prev => ({ ...prev, status: 'failed', failureReason: 'Cancelled by user' }));
+        onComplete();
+      } else {
+        console.error(`Failed to cancel test: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        alert(`Failed to cancel test: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error cancelling test:', error);
+      alert('Error cancelling test. Please try again.');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
   const getStatusIcon = () => {
     switch (result.status) {
       case "running":
@@ -91,9 +120,31 @@ export default function TestStatus({ testId, onComplete }: TestStatusProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center space-x-2">
-        {getStatusIcon()}
-        <span className="font-medium">{getStatusText()}</span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          {getStatusIcon()}
+          <span className="font-medium">{getStatusText()}</span>
+        </div>
+        
+        {result.status === "running" && (
+          <button
+            onClick={handleCancel}
+            disabled={isCancelling}
+            className="flex items-center space-x-1 px-3 py-1 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isCancelling ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Stopping...</span>
+              </>
+            ) : (
+              <>
+                <Square className="w-4 h-4" />
+                <span>Stop</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       <div className="text-sm text-gray-600">
@@ -140,24 +191,28 @@ export default function TestStatus({ testId, onComplete }: TestStatusProps) {
       )}
 
       {result.status === "failed" && (
-        <div className="bg-red-50 p-4 rounded-lg">
-          <h4 className="font-medium text-red-800 mb-2">Test Failed</h4>
-          <div className="text-sm text-red-700 space-y-2">
+        <div className={`p-4 rounded-lg ${result.failureReason === 'Cancelled by user' ? 'bg-gray-50' : 'bg-red-50'}`}>
+          <h4 className={`font-medium mb-2 ${result.failureReason === 'Cancelled by user' ? 'text-gray-800' : 'text-red-800'}`}>
+            {result.failureReason === 'Cancelled by user' ? 'Test Cancelled' : 'Test Failed'}
+          </h4>
+          <div className={`text-sm space-y-2 ${result.failureReason === 'Cancelled by user' ? 'text-gray-700' : 'text-red-700'}`}>
             {result.failureReason && (
               <div>
                 <span className="font-medium">Reason:</span> {result.failureReason}
               </div>
             )}
-            <div>
-              Check the GitHub Actions log for detailed error information.
-            </div>
+            {result.failureReason !== 'Cancelled by user' && (
+              <div>
+                Check the GitHub Actions log for detailed error information.
+              </div>
+            )}
             {result.githubUrl && (
               <div>
                 <a 
                   href={result.githubUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-red-600 hover:text-red-800 underline"
+                  className={`underline ${result.failureReason === 'Cancelled by user' ? 'text-gray-600 hover:text-gray-800' : 'text-red-600 hover:text-red-800'}`}
                 >
                   View workflow run →
                 </a>

@@ -40,6 +40,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log(`Triggering workflow for test ID: ${testId}`)
+    console.log(`Repository: ${githubOwner}/${githubRepo}`)
+    console.log(`Workflow inputs:`, {
+      inbox_id: inboxId,
+      network: network || 'dev',
+      duration: duration || '30',
+      num_groups: numGroups || '10',
+      interval: interval || '1',
+      messages_per_batch: messagesPerBatch || '3',
+      test_id: testId,
+    })
+
     // Trigger GitHub Actions workflow
     const githubResponse = await fetch(
       `https://api.github.com/repos/${githubOwner}/${githubRepo}/actions/workflows/load-test.yml/dispatches`,
@@ -64,6 +76,8 @@ export async function POST(request: NextRequest) {
         }),
       }
     )
+    
+    console.log(`GitHub API response status: ${githubResponse.status} ${githubResponse.statusText}`)
 
     if (!githubResponse.ok) {
       const errorText = await githubResponse.text()

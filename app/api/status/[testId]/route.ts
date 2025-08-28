@@ -42,20 +42,46 @@ export async function GET(
       console.log(`Available workflows:`, workflowsData.workflows?.map((w: any) => ({ name: w.name, path: w.path, id: w.id })))
     }
 
-    // Try to get workflow runs - first try by workflow file name
-    let runsResponse = await fetch(
-      `https://api.github.com/repos/${githubOwner}/${githubRepo}/actions/workflows/load-test.yml/runs?per_page=50`,
-      {
-        headers: {
-          'Authorization': `token ${githubToken}`,
-          'Accept': 'application/vnd.github.v3+json',
-        },
-      }
-    )
+    // Get workflow ID from the workflows list
+    let workflowId = null
+    if (workflowsResponse.ok) {
+      const workflowsData = await workflowsResponse.json()
+      const loadTestWorkflow = workflowsData.workflows?.find((w: any) => 
+        w.name === 'XMTP Load Test' || w.path === '.github/workflows/load-test.yml'
+      )
+      workflowId = loadTestWorkflow?.id
+      console.log(`Found workflow ID: ${workflowId}`)
+    }
+
+    // Try to get workflow runs - use workflow ID if available, otherwise try file name
+    let runsResponse
+    if (workflowId) {
+      console.log(`Fetching runs for workflow ID: ${workflowId}`)
+      runsResponse = await fetch(
+        `https://api.github.com/repos/${githubOwner}/${githubRepo}/actions/workflows/${workflowId}/runs?per_page=50`,
+        {
+          headers: {
+            'Authorization': `token ${githubToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+          },
+        }
+      )
+    } else {
+      console.log(`No workflow ID found, trying by filename`)
+      runsResponse = await fetch(
+        `https://api.github.com/repos/${githubOwner}/${githubRepo}/actions/workflows/load-test.yml/runs?per_page=50`,
+        {
+          headers: {
+            'Authorization': `token ${githubToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+          },
+        }
+      )
+    }
     
     // If that fails, try getting all workflow runs
     if (!runsResponse.ok) {
-      console.log(`Workflow file load-test.yml not found, trying all runs`)
+      console.log(`Specific workflow runs request failed, trying all runs. Status: ${runsResponse.status}`)
       runsResponse = await fetch(
         `https://api.github.com/repos/${githubOwner}/${githubRepo}/actions/runs?per_page=50`,
         {
@@ -85,18 +111,28 @@ export async function GET(
     console.log(`Looking for test ID: ${testId}`)
     console.log(`Found ${runsData.workflow_runs?.length || 0} workflow runs`)
     
+    // Log details about recent runs for debugging
+    if (runsData.workflow_runs && runsData.workflow_runs.length > 0) {
+      console.log(`Recent runs details:`)
+      runsData.workflow_runs.slice(0, 5).forEach((run: any, index: number) => {
+        console.log(`  ${index + 1}. ID: ${run.id}, Name: ${run.name}, Event: ${run.event}, Status: ${run.status}, Created: ${run.created_at}`)
+      })
+    } else {
+      console.log(`No workflow runs found at all`)
+    }
+    
     // Find the run for this test ID - check multiple places where test ID might appear
     const testRun = runsData.workflow_runs?.find((run: any) => {
       const hasTestIdInName = run.name?.includes(testId)
       const hasTestIdInCommitMessage = run.head_commit?.message?.includes(testId)
       const hasTestIdInDisplayTitle = run.display_title?.includes(testId)
       
-      // Check if created recently (within last 10 minutes) and triggered by workflow_dispatch
+      // Check if created recently (within last 15 minutes) and triggered by workflow_dispatch
       const isRecent = run.created_at && 
-        (Date.now() - new Date(run.created_at).getTime()) < 10 * 60 * 1000
+        (Date.now() - new Date(run.created_at).getTime()) < 15 * 60 * 1000
       const isManualTrigger = run.event === 'workflow_dispatch'
       
-      console.log(`Run ${run.id}: name=${run.name}, event=${run.event}, created=${run.created_at}, recent=${isRecent}`)
+      console.log(`Run ${run.id}: name=${run.name}, event=${run.event}, created=${run.created_at}, recent=${isRecent}, hasTestId=${hasTestIdInName}`)
       
       return hasTestIdInName || hasTestIdInCommitMessage || hasTestIdInDisplayTitle || 
              (isRecent && isManualTrigger)
@@ -141,11 +177,29 @@ export async function GET(
         })
       }
       
-      // Still no run found, return running status
+      // Still no run found - check if this is a very recent test
+      // GitHub Actions can take 30-60 seconds to show up in the API
       console.log(`No matching workflow run found for test ID: ${testId}`)
+      
+      // Extract timestamp from test ID if possible (format: test_timestamp_random)
+      const testTimestamp = testId.match(/test_(\d+)_/)?.[1]
+      const testTime = testTimestamp ? parseInt(testTimestamp) : null
+      const now = Date.now()
+      
+      // If test was triggered within last 5 minutes, assume it's still starting
+      if (testTime && (now - testTime) < 5 * 60 * 1000) {
+        console.log(`Test ${testId} was recently triggered (${(now - testTime) / 1000}s ago), returning running status`)
+        return NextResponse.json({
+          status: 'running',
+          testId,
+          message: 'Workflow starting...',
+        })
+      }
+      
       return NextResponse.json({
         status: 'running',
         testId,
+        message: 'Searching for workflow run...',
       })
     }
 
@@ -163,6 +217,14 @@ export async function GET(
         status = 'failed'
     }
 
+    // Add failure reason for cancelled workflows
+    let failureReason = undefined
+    if (status === 'failed' && testRun.conclusion === 'cancelled') {
+      failureReason = 'Cancelled by user'
+    } else if (status === 'failed' && testRun.conclusion) {
+      failureReason = testRun.conclusion
+    }
+
     const result = {
       status,
       testId,
@@ -172,6 +234,7 @@ export async function GET(
         ? Math.floor((new Date(testRun.updated_at).getTime() - new Date(testRun.created_at).getTime()) / 1000)
         : undefined,
       githubUrl: testRun.html_url,
+      failureReason,
     }
 
     // If completed, try to fetch artifacts for detailed results
