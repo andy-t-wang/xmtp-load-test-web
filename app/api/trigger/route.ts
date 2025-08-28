@@ -30,8 +30,8 @@ export async function POST(request: NextRequest) {
     }
 
     const githubToken = process.env.GITHUB_TOKEN
-    const githubOwner = process.env.GITHUB_OWNER || 'worldcoin'
-    const githubRepo = process.env.GITHUB_REPO || 'libxmtp'
+    const githubOwner = process.env.GITHUB_OWNER || 'andy-t-wang'
+    const githubRepo = process.env.GITHUB_REPO || 'xmtp-load-test-web'
 
     if (!githubToken) {
       return NextResponse.json(

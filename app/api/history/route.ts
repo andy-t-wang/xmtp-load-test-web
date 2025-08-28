@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function GET(request: NextRequest) {
   try {
     const githubToken = process.env.GITHUB_TOKEN
-    const githubOwner = process.env.GITHUB_OWNER || 'worldcoin'
-    const githubRepo = process.env.GITHUB_REPO || 'libxmtp'
+    const githubOwner = process.env.GITHUB_OWNER || 'andy-t-wang'
+    const githubRepo = process.env.GITHUB_REPO || 'xmtp-load-test-web'
 
     if (!githubToken) {
       return NextResponse.json(

@@ -7,8 +7,15 @@ export async function GET(
   try {
     const { testId } = params
     const githubToken = process.env.GITHUB_TOKEN
-    const githubOwner = process.env.GITHUB_OWNER || 'worldcoin'
-    const githubRepo = process.env.GITHUB_REPO || 'libxmtp'
+    const githubOwner = process.env.GITHUB_OWNER || 'andy-t-wang'
+    const githubRepo = process.env.GITHUB_REPO || 'xmtp-load-test-web'
+
+    console.log(`Environment check:`, {
+      hasToken: !!githubToken,
+      tokenLength: githubToken?.length || 0,
+      githubOwner,
+      githubRepo
+    })
 
     if (!githubToken) {
       return NextResponse.json(
@@ -17,8 +24,26 @@ export async function GET(
       )
     }
 
-    // Get workflow runs for the load-test workflow
-    const runsResponse = await fetch(
+    console.log(`Checking repository: ${githubOwner}/${githubRepo}`)
+    
+    // First, let's get all workflows to see what's available
+    const workflowsResponse = await fetch(
+      `https://api.github.com/repos/${githubOwner}/${githubRepo}/actions/workflows`,
+      {
+        headers: {
+          'Authorization': `token ${githubToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+        },
+      }
+    )
+    
+    if (workflowsResponse.ok) {
+      const workflowsData = await workflowsResponse.json()
+      console.log(`Available workflows:`, workflowsData.workflows?.map((w: any) => ({ name: w.name, path: w.path, id: w.id })))
+    }
+
+    // Try to get workflow runs - first try by workflow file name
+    let runsResponse = await fetch(
       `https://api.github.com/repos/${githubOwner}/${githubRepo}/actions/workflows/load-test.yml/runs?per_page=50`,
       {
         headers: {
@@ -27,10 +52,30 @@ export async function GET(
         },
       }
     )
+    
+    // If that fails, try getting all workflow runs
+    if (!runsResponse.ok) {
+      console.log(`Workflow file load-test.yml not found, trying all runs`)
+      runsResponse = await fetch(
+        `https://api.github.com/repos/${githubOwner}/${githubRepo}/actions/runs?per_page=50`,
+        {
+          headers: {
+            'Authorization': `token ${githubToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+          },
+        }
+      )
+    }
 
     if (!runsResponse.ok) {
+      const errorText = await runsResponse.text()
+      console.error(`GitHub API error: ${runsResponse.status} ${runsResponse.statusText}`, errorText)
       return NextResponse.json(
-        { error: 'Failed to fetch workflow runs' },
+        { 
+          error: 'Failed to fetch workflow runs',
+          details: `${runsResponse.status}: ${runsResponse.statusText}`,
+          repository: `${githubOwner}/${githubRepo}`
+        },
         { status: 500 }
       )
     }

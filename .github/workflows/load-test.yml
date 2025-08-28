@@ -61,9 +61,25 @@ jobs:
       - name: Checkout this repo
         uses: actions/checkout@v4
 
-      - name: Clone libxmtp
+      - name: Cache libxmtp clone
+        uses: actions/cache@v4
+        with:
+          path: libxmtp
+          key: libxmtp-repo-${{ hashFiles('.github/workflows/load-test.yml') }}
+          restore-keys: |
+            libxmtp-repo-
+
+      - name: Clone libxmtp (if not cached)
         run: |
-          git clone https://github.com/xmtp/libxmtp.git
+          if [ ! -d "libxmtp" ]; then
+            echo "🔄 Cloning libxmtp repository..."
+            git clone --depth 1 https://github.com/xmtp/libxmtp.git
+          else
+            echo "✅ Using cached libxmtp repository"
+            cd libxmtp
+            git pull --depth 1 origin main || echo "Pull failed, using cached version"
+            cd ..
+          fi
           cd libxmtp
           echo "LIBXMTP_PATH=$(pwd)" >> $GITHUB_ENV
 
@@ -79,19 +95,91 @@ jobs:
           profile: minimal
           override: true
 
-      - name: Cache Rust dependencies
+      - name: Cache Rust dependencies and build
         uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            ~/.rustup
             libxmtp/target
-          key: ${{ runner.os }}-cargo-libxmtp-${{ hashFiles('libxmtp/**/Cargo.lock') }}
+          key: ${{ runner.os }}-xdbg-build-${{ hashFiles('libxmtp/**/Cargo.lock', 'libxmtp/**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-xdbg-build-
+            ${{ runner.os }}-cargo-libxmtp-
 
-      - name: Build xdbg
+      - name: Try downloading pre-built xdbg
+        id: download_xdbg
         run: |
           cd libxmtp
-          cargo build --release --bin xdbg
+          mkdir -p target/release
+          echo "🚀 Attempting to download pre-built xdbg binary..."
+          
+          # Try to get latest libxmtp release
+          LATEST_RELEASE=$(curl -s https://api.github.com/repos/xmtp/libxmtp/releases/latest | jq -r '.tag_name // empty')
+          
+          if [ -n "$LATEST_RELEASE" ]; then
+            echo "Latest release: $LATEST_RELEASE"
+            # Try downloading pre-built binary (if available in releases)
+            DOWNLOAD_URL="https://github.com/xmtp/libxmtp/releases/download/$LATEST_RELEASE/xdbg-linux-x86_64"
+            
+            if curl -L -f -o target/release/xdbg "$DOWNLOAD_URL" 2>/dev/null; then
+              chmod +x target/release/xdbg
+              echo "✅ Downloaded pre-built xdbg binary from releases"
+              echo "xdbg_downloaded=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          fi
+          
+          # Fallback: Try extracting from a Docker image (if available)
+          echo "🐳 Trying Docker-based pre-built binary..."
+          if docker pull xmtp/libxmtp:latest 2>/dev/null; then
+            # Try to extract xdbg binary from Docker image
+            CONTAINER_ID=$(docker create xmtp/libxmtp:latest)
+            if docker cp "$CONTAINER_ID:/usr/local/bin/xdbg" target/release/xdbg 2>/dev/null; then
+              chmod +x target/release/xdbg
+              echo "✅ Extracted xdbg binary from Docker image"
+              echo "xdbg_downloaded=true" >> $GITHUB_OUTPUT
+              docker rm "$CONTAINER_ID"
+              exit 0
+            fi
+            docker rm "$CONTAINER_ID"
+          fi
+          
+          echo "❌ No pre-built binary available, will build from source"
+          echo "xdbg_downloaded=false" >> $GITHUB_OUTPUT
+
+      - name: Check if xdbg already built
+        id: check_xdbg
+        if: steps.download_xdbg.outputs.xdbg_downloaded != 'true'
+        run: |
+          cd libxmtp
+          if [ -f "target/release/xdbg" ]; then
+            echo "xdbg_exists=true" >> $GITHUB_OUTPUT
+            echo "✅ xdbg binary already exists, skipping build"
+          else
+            echo "xdbg_exists=false" >> $GITHUB_OUTPUT
+            echo "🔨 xdbg binary not found, will build"
+          fi
+
+      - name: Build xdbg (if needed)
+        if: steps.download_xdbg.outputs.xdbg_downloaded != 'true' && steps.check_xdbg.outputs.xdbg_exists != 'true'
+        run: |
+          cd libxmtp
+          echo "🔨 Building xdbg with optimized settings..."
+          
+          # Use all available CPU cores for faster compilation
+          export CARGO_BUILD_JOBS=$(nproc)
+          
+          # Enable incremental compilation for faster rebuilds
+          export CARGO_INCREMENTAL=1
+          
+          # Build with optimized flags for faster compilation
+          cargo build --release --bin xdbg \
+            --config 'profile.release.lto="thin"' \
+            --config 'profile.release.codegen-units=1' \
+            --config 'profile.release.panic="abort"' \
+            -j $(nproc)
 
       - name: Run Load Test
         id: load_test
