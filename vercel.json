@@ -1,11 +1,6 @@
 {
-  "framework": "nextjs",
   "buildCommand": "npm run build",
-  "outputDirectory": ".next",
+  "framework": "nextjs",
   "installCommand": "npm install",
-  "env": {
-    "GITHUB_TOKEN": "@github_token",
-    "GITHUB_OWNER": "@github_owner", 
-    "GITHUB_REPO": "@github_repo"
-  }
+  "outputDirectory": ".next"
 }
