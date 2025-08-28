@@ -225,6 +225,33 @@ export async function GET(
       failureReason = testRun.conclusion
     }
 
+    // Parse metadata from workflow job name
+    // Format: "Test testId | Network: dev | Groups: 10 | Inbox: abc123..."
+    const parseMetadataFromName = (name: string) => {
+      const metadata: any = {}
+      
+      if (!name) return metadata
+      
+      const networkMatch = name.match(/Network:\s*(\w+)/)
+      if (networkMatch) {
+        metadata.network = networkMatch[1]
+      }
+      
+      const groupsMatch = name.match(/Groups:\s*(\d+)/)
+      if (groupsMatch) {
+        metadata.groups = parseInt(groupsMatch[1])
+      }
+      
+      const inboxMatch = name.match(/Inbox:\s*([a-f0-9]{8})[a-f0-9]*/)
+      if (inboxMatch) {
+        metadata.inboxId = name.match(/Inbox:\s*([a-f0-9]+)/)?.[1] // Get full inbox ID
+      }
+      
+      return metadata
+    }
+    
+    const metadata = parseMetadataFromName(testRun.name || testRun.display_title || '')
+
     const result = {
       status,
       testId,
@@ -235,6 +262,7 @@ export async function GET(
         : undefined,
       githubUrl: testRun.html_url,
       failureReason,
+      ...metadata,
     }
 
     // If completed, try to fetch artifacts for detailed results

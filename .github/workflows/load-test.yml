@@ -44,7 +44,7 @@ on:
 
 jobs:
   load-test:
-    name: "Load Test ${{ inputs.test_id }}"
+    name: "Test ${{ inputs.test_id }} | Network: ${{ inputs.network }} | Groups: ${{ inputs.num_groups }} | Inbox: ${{ inputs.inbox_id }}"
     runs-on: ubuntu-latest
     timeout-minutes: 30
 

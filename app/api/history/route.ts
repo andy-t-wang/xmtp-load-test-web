@@ -38,21 +38,23 @@ export async function GET(request: NextRequest) {
     let runsResponse
     if (workflowId) {
       runsResponse = await fetch(
-        `https://api.github.com/repos/${githubOwner}/${githubRepo}/actions/workflows/${workflowId}/runs?per_page=20`,
+        `https://api.github.com/repos/${githubOwner}/${githubRepo}/actions/workflows/${workflowId}/runs?per_page=20&_=${Date.now()}`,
         {
           headers: {
             'Authorization': `token ${githubToken}`,
             'Accept': 'application/vnd.github.v3+json',
+            'Cache-Control': 'no-cache',
           },
         }
       )
     } else {
       runsResponse = await fetch(
-        `https://api.github.com/repos/${githubOwner}/${githubRepo}/actions/workflows/load-test.yml/runs?per_page=20`,
+        `https://api.github.com/repos/${githubOwner}/${githubRepo}/actions/workflows/load-test.yml/runs?per_page=20&_=${Date.now()}`,
         {
           headers: {
             'Authorization': `token ${githubToken}`,
             'Accept': 'application/vnd.github.v3+json',
+            'Cache-Control': 'no-cache',
           },
         }
       )
@@ -66,7 +68,32 @@ export async function GET(request: NextRequest) {
     }
 
     const runsData = await runsResponse.json()
+    console.log(`[History API] GitHub returned ${runsData.workflow_runs?.length || 0} workflow runs`)
     
+    // Parse metadata from workflow job name
+    const parseMetadataFromName = (name: string) => {
+      const metadata: any = {}
+      
+      if (!name) return metadata
+      
+      const networkMatch = name.match(/Network:\s*(\w+)/)
+      if (networkMatch) {
+        metadata.network = networkMatch[1]
+      }
+      
+      const groupsMatch = name.match(/Groups:\s*(\d+)/)
+      if (groupsMatch) {
+        metadata.groups = parseInt(groupsMatch[1])
+      }
+      
+      const inboxMatch = name.match(/Inbox:\s*([a-f0-9]{8})[a-f0-9]*/)
+      if (inboxMatch) {
+        metadata.inboxId = name.match(/Inbox:\s*([a-f0-9]+)/)?.[1] // Get full inbox ID
+      }
+      
+      return metadata
+    }
+
     const tests = runsData.workflow_runs?.map((run: any) => {
       let status: 'running' | 'completed' | 'failed'
       
@@ -87,6 +114,24 @@ export async function GET(request: NextRequest) {
                          run.head_commit?.message?.match(/test_\d+_\w+/)
       const testId = testIdMatch ? testIdMatch[0] : `run_${run.id}`
 
+      // Parse metadata from job name
+      const rawName = run.name || run.display_title || ''
+      const metadata = parseMetadataFromName(rawName)
+      
+      // Debug logging
+      if (rawName) {
+        console.log(`[History API] Parsing workflow name: "${rawName}"`)
+        console.log(`[History API] Extracted metadata:`, metadata)
+      }
+
+      // Add failure reason for failed tests
+      let failureReason = undefined
+      if (status === 'failed' && run.conclusion === 'cancelled') {
+        failureReason = 'Cancelled by user'
+      } else if (status === 'failed' && run.conclusion) {
+        failureReason = run.conclusion
+      }
+
       return {
         id: testId,
         runId: run.id,
@@ -97,12 +142,24 @@ export async function GET(request: NextRequest) {
           ? Math.floor((new Date(run.updated_at).getTime() - new Date(run.created_at).getTime()) / 1000)
           : undefined,
         githubUrl: run.html_url,
-        // We could parse more details from the workflow inputs if needed
+        failureReason,
+        ...metadata, // Include network, groups, inboxId
       }
     }) || []
 
+    const finalTests = tests.slice(0, 20)
+    console.log(`[History API] Returning ${finalTests.length} processed tests`)
+    
+    if (finalTests.length > 0) {
+      console.log('[History API] Most recent test:', {
+        id: finalTests[0].id,
+        status: finalTests[0].status,
+        created: finalTests[0].startTime,
+      })
+    }
+    
     return NextResponse.json({
-      tests: tests.slice(0, 20), // Return up to 20 recent tests
+      tests: finalTests, // Return up to 20 recent tests
     })
 
   } catch (error) {

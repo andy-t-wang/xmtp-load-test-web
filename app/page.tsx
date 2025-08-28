@@ -5,12 +5,26 @@ import TestForm from '@/components/TestForm'
 import TestStatus from '@/components/TestStatus'
 import TestHistory from '@/components/TestHistory'
 
+interface SelectedTestData {
+  id: string
+  status?: 'running' | 'completed' | 'failed'
+  startTime?: string
+  duration?: number
+  totalMessages?: number
+  messagesPerSecond?: number
+  groups?: number
+  network?: string
+  inboxId?: string
+  githubUrl?: string
+  failureReason?: string
+}
+
 export default function Home() {
-  const [selectedTest, setSelectedTest] = useState<string | null>(null)
+  const [selectedTest, setSelectedTest] = useState<SelectedTestData | null>(null)
   const [refreshHistory, setRefreshHistory] = useState(0)
 
   const handleTestStart = (testId: string) => {
-    setSelectedTest(testId)
+    setSelectedTest({ id: testId }) // Will get status from API
   }
 
   const handleTestComplete = () => {
@@ -18,8 +32,8 @@ export default function Home() {
     setRefreshHistory(prev => prev + 1)
   }
 
-  const handleTestSelect = (testId: string) => {
-    setSelectedTest(testId)
+  const handleTestSelect = (testData: SelectedTestData) => {
+    setSelectedTest(testData)
   }
 
   return (
@@ -42,7 +56,7 @@ export default function Home() {
               Test Status
             </h3>
             {selectedTest ? (
-              <TestStatus testId={selectedTest} onComplete={handleTestComplete} />
+              <TestStatus testData={selectedTest} onComplete={handleTestComplete} />
             ) : (
               <div className="text-gray-500 text-center py-8">
                 Select a test from the history below or start a new test
@@ -58,7 +72,7 @@ export default function Home() {
           <TestHistory 
             key={refreshHistory} 
             onTestSelect={handleTestSelect} 
-            selectedTestId={selectedTest}
+            selectedTestId={selectedTest?.id}
           />
         </div>
       </div>

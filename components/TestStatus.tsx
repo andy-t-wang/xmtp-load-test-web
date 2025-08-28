@@ -4,7 +4,19 @@ import { useState, useEffect } from "react";
 import { Clock, CheckCircle, AlertCircle, Loader2, Square } from "lucide-react";
 
 interface TestStatusProps {
-  testId: string;
+  testData: {
+    id: string
+    status?: 'running' | 'completed' | 'failed'
+    startTime?: string
+    duration?: number
+    totalMessages?: number
+    messagesPerSecond?: number
+    groups?: number
+    network?: string
+    inboxId?: string
+    githubUrl?: string
+    failureReason?: string
+  };
   onComplete: () => void;
 }
 
@@ -21,24 +33,46 @@ interface TestResult {
   failureReason?: string;
   conclusion?: string;
   message?: string;
+  network?: string;
+  inboxId?: string;
 }
 
-export default function TestStatus({ testId, onComplete }: TestStatusProps) {
-  const [result, setResult] = useState<TestResult>({ status: "running" });
+export default function TestStatus({ testData, onComplete }: TestStatusProps) {
+  const [result, setResult] = useState<TestResult>(() => {
+    // Initialize with data from history if available
+    if (testData.status) {
+      return {
+        status: testData.status,
+        startTime: testData.startTime,
+        duration: testData.duration,
+        totalMessages: testData.totalMessages,
+        messagesPerSecond: testData.messagesPerSecond,
+        groups: testData.groups,
+        githubUrl: testData.githubUrl,
+        failureReason: testData.failureReason,
+      }
+    }
+    return { status: "running" }
+  });
   const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
+    // If we already have complete data from history, don't poll
+    if (testData.status && (testData.status === "completed" || testData.status === "failed")) {
+      return;
+    }
+
     const checkStatus = async () => {
       try {
-        console.log(`Checking status for test: ${testId}`);
-        const response = await fetch(`/api/status/${testId}`);
+        console.log(`Checking status for test: ${testData.id}`);
+        const response = await fetch(`/api/status/${testData.id}`);
         if (response.ok) {
           const data = await response.json();
           console.log(`Status response:`, data);
           setResult(data);
 
           if (data.status === "completed" || data.status === "failed") {
-            console.log(`Test ${testId} finished with status: ${data.status}`);
+            console.log(`Test ${testData.id} finished with status: ${data.status}`);
             onComplete();
           }
         } else {
@@ -49,30 +83,33 @@ export default function TestStatus({ testId, onComplete }: TestStatusProps) {
       }
     };
 
-    // Check status every 5 seconds
-    const statusInterval = setInterval(checkStatus, 5000);
+    // Only poll for running tests
+    if (!testData.status || testData.status === "running") {
+      // Check status every 5 seconds
+      const statusInterval = setInterval(checkStatus, 5000);
 
-    // Check immediately
-    checkStatus();
+      // Check immediately
+      checkStatus();
 
-    return () => {
-      clearInterval(statusInterval);
-    };
-  }, [testId, onComplete]);
+      return () => {
+        clearInterval(statusInterval);
+      };
+    }
+  }, [testData.id, testData.status, onComplete]);
 
   const handleCancel = async () => {
     if (isCancelling) return;
     
     try {
       setIsCancelling(true);
-      console.log(`Cancelling test: ${testId}`);
+      console.log(`Cancelling test: ${testData.id}`);
       
-      const response = await fetch(`/api/cancel/${testId}`, {
+      const response = await fetch(`/api/cancel/${testData.id}`, {
         method: 'POST',
       });
       
       if (response.ok) {
-        console.log(`Successfully cancelled test: ${testId}`);
+        console.log(`Successfully cancelled test: ${testData.id}`);
         setResult(prev => ({ ...prev, status: 'failed', failureReason: 'Cancelled by user' }));
         onComplete();
       } else {
@@ -149,7 +186,7 @@ export default function TestStatus({ testId, onComplete }: TestStatusProps) {
 
       <div className="text-sm text-gray-600">
         <div>
-          Test ID: <span className="font-mono text-xs">{testId}</span>
+          Test ID: <span className="font-mono text-xs">{testData.id}</span>
         </div>
       </div>
 
@@ -164,7 +201,7 @@ export default function TestStatus({ testId, onComplete }: TestStatusProps) {
         </div>
       )}
 
-      {result.status === "completed" && result.totalMessages && (
+      {result.status === "completed" && (
         <div className="bg-green-50 p-4 rounded-lg">
           <h4 className="font-medium text-green-800 mb-2">Test Results</h4>
           <div className="grid grid-cols-2 gap-4 text-sm">
@@ -172,19 +209,43 @@ export default function TestStatus({ testId, onComplete }: TestStatusProps) {
               <span className="text-green-600">Duration:</span>
               <span className="ml-2 font-mono">{result.duration}s</span>
             </div>
-            <div>
-              <span className="text-green-600">Total Messages:</span>
-              <span className="ml-2 font-mono">{result.totalMessages}</span>
-            </div>
-            <div>
-              <span className="text-green-600">Messages/sec:</span>
-              <span className="ml-2 font-mono">
-                {result.messagesPerSecond?.toFixed(1)}
-              </span>
-            </div>
-            <div>
-              <span className="text-green-600">Groups:</span>
-              <span className="ml-2 font-mono">{result.groups}</span>
+            {result.totalMessages && (
+              <div>
+                <span className="text-green-600">Total Messages:</span>
+                <span className="ml-2 font-mono">{result.totalMessages}</span>
+              </div>
+            )}
+            {result.messagesPerSecond && (
+              <div>
+                <span className="text-green-600">Messages/sec:</span>
+                <span className="ml-2 font-mono">
+                  {result.messagesPerSecond.toFixed(1)}
+                </span>
+              </div>
+            )}
+            {result.groups && (
+              <div>
+                <span className="text-green-600">Groups:</span>
+                <span className="ml-2 font-mono">{result.groups}</span>
+              </div>
+            )}
+          </div>
+          
+          {/* Additional metadata row */}
+          <div className="mt-3 pt-3 border-t border-green-200">
+            <div className="grid grid-cols-1 gap-2 text-xs">
+              {result.network && (
+                <div>
+                  <span className="text-green-600 font-medium">Network:</span>
+                  <span className="ml-2 font-mono">{result.network}</span>
+                </div>
+              )}
+              {result.inboxId && (
+                <div>
+                  <span className="text-green-600 font-medium">Inbox ID:</span>
+                  <span className="ml-2 font-mono text-xs">{result.inboxId.slice(0, 16)}...</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

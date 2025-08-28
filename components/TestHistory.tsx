@@ -19,7 +19,7 @@ interface TestRun {
 }
 
 interface TestHistoryProps {
-  onTestSelect: (testId: string) => void
+  onTestSelect: (testData: TestRun) => void
   selectedTestId?: string | null
 }
 
@@ -28,6 +28,7 @@ export default function TestHistory({ onTestSelect, selectedTestId }: TestHistor
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   const fetchHistory = async (isRefresh = false) => {
     if (isRefresh) {
@@ -37,18 +38,44 @@ export default function TestHistory({ onTestSelect, selectedTestId }: TestHistor
     }
     
     try {
-      const response = await fetch('/api/history')
+      // Add cache-busting timestamp
+      const cacheBuster = `?_=${Date.now()}`
+      const response = await fetch(`/api/history${cacheBuster}`, {
+        cache: 'no-store', // Prevent browser caching
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        }
+      })
+      
+      console.log(`[TestHistory] ${isRefresh ? 'Refresh' : 'Initial'} fetch response: ${response.status}`)
       
       if (response.ok) {
         const data = await response.json()
+        console.log(`[TestHistory] Received ${data.tests?.length || 0} tests`)
+        
+        // Log first few tests for debugging
+        if (data.tests?.length > 0) {
+          console.log('[TestHistory] Recent tests:', data.tests.slice(0, 3).map(t => ({
+            id: t.id,
+            status: t.status,
+            startTime: t.startTime,
+            groups: t.groups,
+            network: t.network,
+            inboxId: t.inboxId ? t.inboxId.slice(0, 8) + '...' : 'none'
+          })))
+        }
+        
         setTests(data.tests || [])
         setError(null)
+        setLastUpdated(new Date())
       } else {
         const errorData = await response.json().catch(() => ({}))
+        console.error(`[TestHistory] API error: ${response.status}`, errorData)
         setError(`Failed to load test history: ${errorData.error || 'Unknown error'}`)
       }
     } catch (error) {
-      console.error('Error fetching test history:', error)
+      console.error('[TestHistory] Network error:', error)
       setError('Network error while loading test history')
     } finally {
       setLoading(false)
@@ -58,6 +85,16 @@ export default function TestHistory({ onTestSelect, selectedTestId }: TestHistor
 
   useEffect(() => {
     fetchHistory()
+    
+    // Set up auto-refresh every 30 seconds to catch new tests
+    const autoRefreshInterval = setInterval(() => {
+      console.log('[TestHistory] Auto-refreshing...')
+      fetchHistory(true)
+    }, 30000) // 30 seconds
+    
+    return () => {
+      clearInterval(autoRefreshInterval)
+    }
   }, [])
 
   const handleRefresh = () => {
@@ -115,9 +152,17 @@ export default function TestHistory({ onTestSelect, selectedTestId }: TestHistor
   return (
     <>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-medium leading-6 text-gray-900">
-          Test History
-        </h3>
+        <div>
+          <h3 className="text-lg font-medium leading-6 text-gray-900">
+            Test History
+          </h3>
+          {lastUpdated && (
+            <p className="text-xs text-gray-500">
+              Last updated: {lastUpdated.toLocaleTimeString()} 
+              <span className="ml-1">(auto-refresh every 30s)</span>
+            </p>
+          )}
+        </div>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
@@ -137,7 +182,7 @@ export default function TestHistory({ onTestSelect, selectedTestId }: TestHistor
         return (
           <div
             key={test.id}
-            onClick={() => isClickable && onTestSelect(test.id)}
+            onClick={() => isClickable && onTestSelect(test)}
             className={`border rounded-lg p-4 transition-all ${
               isSelected 
                 ? 'border-blue-500 bg-blue-50 shadow-sm' 
@@ -205,16 +250,16 @@ export default function TestHistory({ onTestSelect, selectedTestId }: TestHistor
                   </div>
                   <div>
                     <span className="font-medium">Groups:</span>
-                    <div className="font-mono">{test.groups}</div>
+                    <div className="font-mono">{test.groups || 'N/A'}</div>
                   </div>
                   <div>
                     <span className="font-medium">Network:</span>
-                    <div className="font-mono">{test.network}</div>
+                    <div className="font-mono">{test.network || 'N/A'}</div>
                   </div>
                   <div>
                     <span className="font-medium">Inbox:</span>
                     <div className="font-mono text-xs">
-                      {test.inboxId?.slice(0, 8)}...
+                      {test.inboxId ? `${test.inboxId.slice(0, 8)}...` : 'N/A'}
                     </div>
                   </div>
                 </div>
