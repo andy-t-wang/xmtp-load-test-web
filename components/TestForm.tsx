@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Play, Loader2, Share2, Check } from 'lucide-react'
+import { Play, Loader2, Share2, Check, HelpCircle } from 'lucide-react'
 
 interface TestFormProps {
   onTestStart: (testId: string) => void
@@ -11,6 +11,7 @@ interface TestFormProps {
 export default function TestForm({ onTestStart, disabled }: TestFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showCopied, setShowCopied] = useState(false)
+  const [showTooltip, setShowTooltip] = useState(false)
   const [formData, setFormData] = useState({
     inboxId: '',
     network: 'dev',
@@ -126,9 +127,35 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="inboxId" className="block text-sm font-medium text-gray-700">
-          Inbox ID *
-        </label>
+        <div className="flex items-center mb-1">
+          <label htmlFor="inboxId" className="block text-sm font-medium text-gray-700">
+            Inbox ID *
+          </label>
+          <div className="relative ml-2">
+            <button
+              type="button"
+              onMouseEnter={() => setShowTooltip(true)}
+              onMouseLeave={() => setShowTooltip(false)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+            
+            {showTooltip && (
+              <div className="absolute left-full top-1/2 transform -translate-y-1/2 ml-2 w-72 bg-gray-900 text-white text-xs rounded-lg p-3 shadow-xl z-50">
+                <div className="font-medium mb-1">How to get your Inbox ID:</div>
+                <div className="space-y-1">
+                  <div>1. Go to <a href="https://xmtp.chat/" target="_blank" rel="noopener noreferrer" className="text-blue-300 hover:text-blue-200 underline">xmtp.chat</a></div>
+                  <div>2. Connect your wallet</div>
+                  <div>3. Create a chat on the <strong>same network</strong> as your test</div>
+                  <div>4. Your Inbox ID will be in the URL or chat details</div>
+                </div>
+                {/* Arrow pointing left */}
+                <div className="absolute right-full top-1/2 transform -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+              </div>
+            )}
+          </div>
+        </div>
         <input
           type="text"
           name="inboxId"

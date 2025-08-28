@@ -40,7 +40,7 @@ export default function Home() {
     <div className="px-4 py-6 sm:px-0">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Test Form */}
-        <div className="bg-white overflow-hidden shadow rounded-lg">
+        <div className="bg-white overflow-visible shadow rounded-lg">
           <div className="px-4 py-5 sm:p-6">
             <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
               Start New Load Test
