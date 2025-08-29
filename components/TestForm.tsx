@@ -131,11 +131,13 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
           <label htmlFor="inboxId" className="block text-sm font-medium text-gray-700">
             Inbox ID *
           </label>
-          <div className="relative ml-2">
+          <div 
+            className="relative ml-2"
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+          >
             <button
               type="button"
-              onMouseEnter={() => setShowTooltip(true)}
-              onMouseLeave={() => setShowTooltip(false)}
               className="text-gray-400 hover:text-gray-600"
             >
               <HelpCircle className="w-4 h-4" />
