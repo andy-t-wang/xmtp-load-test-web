@@ -17,6 +17,7 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
     network: 'dev',
     duration: '30',
     numGroups: '10',
+    numDms: '0',
     interval: '1',
     messagesPerBatch: '3'
   })
@@ -32,6 +33,7 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
       network: 'network',
       duration: 'duration',
       groups: 'numGroups',
+      dms: 'numDms',
       interval: 'interval',
       messages: 'messagesPerBatch'
     }
@@ -94,6 +96,7 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
       network: 'network',
       duration: 'duration',
       numGroups: 'groups',
+      numDms: 'dms',
       interval: 'interval',
       messagesPerBatch: 'messages'
     }
@@ -209,16 +212,16 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <label htmlFor="numGroups" className="block text-sm font-medium text-gray-700">
-            Groups
+            Groups (10 members each)
           </label>
           <input
             type="number"
             name="numGroups"
             id="numGroups"
-            min="1"
+            min="0"
             max="50"
             value={formData.numGroups}
             onChange={handleChange}
@@ -227,6 +230,25 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
           />
         </div>
 
+        <div>
+          <label htmlFor="numDms" className="block text-sm font-medium text-gray-700">
+            DMs (2 members each)
+          </label>
+          <input
+            type="number"
+            name="numDms"
+            id="numDms"
+            min="0"
+            max="50"
+            value={formData.numDms}
+            onChange={handleChange}
+            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm border px-3 py-2"
+            disabled={disabled}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
         <div>
           <label htmlFor="interval" className="block text-sm font-medium text-gray-700">
             Interval (sec)
@@ -260,6 +282,17 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
             className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm border px-3 py-2"
             disabled={disabled}
           />
+        </div>
+
+        <div className="flex items-end">
+          <div className="w-full">
+            <div className="text-sm text-gray-500 mb-1">
+              Total Conversations: {parseInt(formData.numGroups) + parseInt(formData.numDms)}
+            </div>
+            <div className="text-xs text-gray-400">
+              Groups + DMs
+            </div>
+          </div>
         </div>
       </div>
 

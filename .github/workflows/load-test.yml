@@ -27,6 +27,11 @@ on:
         required: true
         type: string
         default: "10"
+      num_dms:
+        description: "Number of DMs (2-person conversations) to create"
+        required: false
+        type: string
+        default: "0"
       interval:
         description: "Seconds between message batches"
         required: true
@@ -56,6 +61,7 @@ jobs:
           echo "Network: ${{ inputs.network }}"
           echo "Duration: ${{ inputs.duration }}s"
           echo "Groups: ${{ inputs.num_groups }}"
+          echo "DMs: ${{ inputs.num_dms }}"
           echo "Inbox ID: ${{ inputs.inbox_id }}"
 
       - name: Checkout this repo
@@ -175,10 +181,11 @@ jobs:
           INTERVAL: ${{ inputs.interval }}
           MESSAGES_PER_BATCH: ${{ inputs.messages_per_batch }}
           TEST_ID: ${{ inputs.test_id }}
+          NUM_DMS: ${{ inputs.num_dms }}
           XDBG_PATH: ${{ env.LIBXMTP_PATH }}/target/release/xdbg
         run: |
           chmod +x load_test_json.sh
-          ./load_test_json.sh "$INBOX_ID" "$NETWORK" "$INTERVAL" "$DURATION" "$NUM_GROUPS" "$MESSAGES_PER_BATCH" "$TEST_ID"
+          ./load_test_json.sh "$INBOX_ID" "$NETWORK" "$INTERVAL" "$DURATION" "$NUM_GROUPS" "$MESSAGES_PER_BATCH" "$TEST_ID" "$NUM_DMS"
 
       - name: Upload Results
         uses: actions/upload-artifact@v4

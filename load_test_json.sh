@@ -19,6 +19,7 @@ DURATION=${4-30}
 NUM_GROUPS=${5-10}
 MESSAGES_PER_GROUP_PER_BATCH=${6-3}
 TEST_ID=${7-"test_$(date +%s)"}
+NUM_DMS=${8-0}  # Number of DM conversations (2-person groups)
 
 CMD="${XDBG_PATH:-./target/release/xdbg} -b $NETWORK"
 
@@ -33,6 +34,7 @@ echo "Network: $NETWORK" | tee -a $LOGS_FILE
 echo "Duration: ${DURATION}s" | tee -a $LOGS_FILE
 echo "Interval between batches: ${INTERVAL}s" | tee -a $LOGS_FILE
 echo "Groups: $NUM_GROUPS" | tee -a $LOGS_FILE
+echo "DMs: $NUM_DMS" | tee -a $LOGS_FILE
 echo "Messages per group per batch: $MESSAGES_PER_GROUP_PER_BATCH" | tee -a $LOGS_FILE
 echo "----------------------------------------" | tee -a $LOGS_FILE
 
@@ -49,30 +51,55 @@ $CMD --clear 2>&1 | tee -a $LOGS_FILE
 echo "Generating identities..." | tee -a $LOGS_FILE
 $CMD generate --entity identity --amount 20 2>&1 | tee -a $LOGS_FILE
 
-# Create groups with identifiable names
-echo "Creating $NUM_GROUPS groups..." | tee -a $LOGS_FILE
-for i in $(seq 1 $NUM_GROUPS); do
-    GROUP_NAME="LoadTest_${TEST_ID}_Group_${i}"
-    echo "  Creating group $i/$NUM_GROUPS (Name: $GROUP_NAME)" | tee -a $LOGS_FILE
-    $CMD generate --entity group --amount 1 --invite 10 --name "$GROUP_NAME" 2>&1 | tee -a $LOGS_FILE
-done
+# Create groups (multi-member)
+if [ $NUM_GROUPS -gt 0 ]; then
+    echo "Creating $NUM_GROUPS groups (10 members each)..." | tee -a $LOGS_FILE
+    for i in $(seq 1 $NUM_GROUPS); do
+        echo "  Creating group $i/$NUM_GROUPS" | tee -a $LOGS_FILE
+        $CMD generate --entity group --amount 1 --invite 10 2>&1 | tee -a $LOGS_FILE
+    done
+fi
+
+# Create DMs (2-member groups)
+if [ $NUM_DMS -gt 0 ]; then
+    echo "Creating $NUM_DMS DMs (2 members each)..." | tee -a $LOGS_FILE
+    for i in $(seq 1 $NUM_DMS); do
+        echo "  Creating DM $i/$NUM_DMS" | tee -a $LOGS_FILE
+        $CMD generate --entity group --amount 1 --invite 1 2>&1 | tee -a $LOGS_FILE
+    done
+fi
 
 # Get group IDs
 EXPORT=$(mktemp)
 echo "Exporting groups to $EXPORT" | tee -a $LOGS_FILE
 $CMD export --entity group --out $EXPORT 2>&1 | tee -a $LOGS_FILE
 
-# Display group IDs
-echo "Created groups:" | tee -a $LOGS_FILE
-jq -r '.[].id' $EXPORT | head -$NUM_GROUPS | tee -a $LOGS_FILE
+# Display created conversations
+TOTAL_CONVOS=$((NUM_GROUPS + NUM_DMS))
+echo "Created $TOTAL_CONVOS conversations:" | tee -a $LOGS_FILE
+jq -r '.[].id' $EXPORT | head -$TOTAL_CONVOS | tee -a $LOGS_FILE
 
-# Add the specified inbox to all groups
-echo "Adding inbox $INBOX_ID to all groups..." | tee -a $LOGS_FILE
-GROUP_IDS=($(jq -r '.[].id' $EXPORT | head -$NUM_GROUPS))
-for i in "${!GROUP_IDS[@]}"; do
-    group_id="${GROUP_IDS[$i]}"
-    echo "  Adding to group $((i+1))/$NUM_GROUPS (ID: $group_id)" | tee -a $LOGS_FILE
-    $CMD modify --inbox-id $INBOX_ID add-external "$group_id" 2>&1 | tee -a $LOGS_FILE
+# Add the specified inbox to all groups and DMs
+echo "Adding inbox $INBOX_ID to all conversations..." | tee -a $LOGS_FILE
+ALL_GROUP_IDS=($(jq -r '.[].id' $EXPORT | head -$TOTAL_CONVOS))
+
+# Add to multi-member groups
+for i in $(seq 0 $((NUM_GROUPS - 1))); do
+    if [ $i -lt ${#ALL_GROUP_IDS[@]} ]; then
+        group_id="${ALL_GROUP_IDS[$i]}"
+        echo "  Adding to group $((i+1))/$NUM_GROUPS (ID: $group_id)" | tee -a $LOGS_FILE
+        $CMD modify --inbox-id $INBOX_ID add-external "$group_id" 2>&1 | tee -a $LOGS_FILE
+    fi
+done
+
+# Add to DMs
+for i in $(seq $NUM_GROUPS $((TOTAL_CONVOS - 1))); do
+    if [ $i -lt ${#ALL_GROUP_IDS[@]} ]; then
+        dm_id="${ALL_GROUP_IDS[$i]}"
+        dm_num=$((i - NUM_GROUPS + 1))
+        echo "  Adding to DM $dm_num/$NUM_DMS (ID: $dm_id)" | tee -a $LOGS_FILE
+        $CMD modify --inbox-id $INBOX_ID add-external "$dm_id" 2>&1 | tee -a $LOGS_FILE
+    fi
 done
 
 # Function to send messages to all groups
@@ -127,6 +154,8 @@ cleanup_and_exit() {
   "totalMessages": $TOTAL_MESSAGES,
   "messagesPerSecond": $MSGS_PER_SEC,
   "groups": $NUM_GROUPS,
+  "dms": $NUM_DMS,
+  "totalConversations": $TOTAL_CONVOS,
   "messagesPerGroupPerBatch": $MESSAGES_PER_GROUP_PER_BATCH,
   "interval": $INTERVAL,
   "network": "$NETWORK",
@@ -160,7 +189,8 @@ trap 'echo "Received termination signal" | tee -a $LOGS_FILE; KEEP_RUNNING=false
 # Main load test loop
 echo "----------------------------------------" | tee -a $LOGS_FILE
 echo "Starting load test for up to $DURATION seconds..." | tee -a $LOGS_FILE
-echo "Sending $MESSAGES_PER_GROUP_PER_BATCH messages to each of $NUM_GROUPS groups every ${INTERVAL}s" | tee -a $LOGS_FILE
+echo "Sending $MESSAGES_PER_GROUP_PER_BATCH messages to each of $TOTAL_CONVOS conversations every ${INTERVAL}s" | tee -a $LOGS_FILE
+echo "  ($NUM_GROUPS groups + $NUM_DMS DMs)" | tee -a $LOGS_FILE
 
 LOOP_COUNT=0
 TOTAL_MESSAGES=0
@@ -174,8 +204,8 @@ while [ "$KEEP_RUNNING" = true ]; do
     # Send messages to all groups
     send_messages_to_all_groups
     
-    # Update total message count
-    MESSAGES_THIS_BATCH=$((NUM_GROUPS * MESSAGES_PER_GROUP_PER_BATCH))
+    # Update total message count (messages go to all groups and DMs)
+    MESSAGES_THIS_BATCH=$((TOTAL_CONVOS * MESSAGES_PER_GROUP_PER_BATCH))
     TOTAL_MESSAGES=$((TOTAL_MESSAGES + MESSAGES_THIS_BATCH))
     
     # Check if we should stop before the sleep

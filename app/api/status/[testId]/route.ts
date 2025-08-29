@@ -281,16 +281,51 @@ export async function GET(
         if (artifactsResponse.ok) {
           const artifactsData = await artifactsResponse.json()
           const resultArtifact = artifactsData.artifacts?.find((artifact: any) =>
-            artifact.name.includes(testId) && artifact.name.includes('results')
+            artifact.name.includes(testId)
           )
 
           if (resultArtifact) {
-            // Note: We can't actually download the artifact content via API without additional steps
-            // For now, we'll return basic info and let the user check GitHub
-            Object.assign(result, {
-              hasResults: true,
-              artifactUrl: resultArtifact.archive_download_url,
-            })
+            // Download the artifact
+            try {
+              const downloadResponse = await fetch(
+                `https://api.github.com/repos/${githubOwner}/${githubRepo}/actions/artifacts/${resultArtifact.id}/zip`,
+                {
+                  headers: {
+                    'Authorization': `token ${githubToken}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                  },
+                }
+              )
+
+              if (downloadResponse.ok) {
+                // Parse the ZIP file to extract JSON results
+                const arrayBuffer = await downloadResponse.arrayBuffer()
+                const { unzipSync } = await import('fflate')
+                const unzipped = unzipSync(new Uint8Array(arrayBuffer))
+                
+                // Find the results JSON file
+                const resultsFile = Object.keys(unzipped).find(name => 
+                  name.includes('results') && name.endsWith('.json')
+                )
+                
+                if (resultsFile) {
+                  const jsonContent = new TextDecoder().decode(unzipped[resultsFile])
+                  const artifactData = JSON.parse(jsonContent)
+                  
+                  // Merge artifact data with result
+                  Object.assign(result, {
+                    totalMessages: artifactData.totalMessages,
+                    messagesPerSecond: artifactData.messagesPerSecond,
+                    groups: artifactData.groups || metadata.groups,
+                    network: artifactData.network || metadata.network,
+                    inboxId: artifactData.inboxId || metadata.inboxId,
+                  })
+                }
+              }
+            } catch (error) {
+              console.error('Error downloading/parsing artifact:', error)
+              // Fall back to metadata only
+            }
           }
         }
       } catch (error) {
