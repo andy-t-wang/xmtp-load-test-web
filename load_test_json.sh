@@ -49,11 +49,12 @@ $CMD --clear 2>&1 | tee -a $LOGS_FILE
 echo "Generating identities..." | tee -a $LOGS_FILE
 $CMD generate --entity identity --amount 20 2>&1 | tee -a $LOGS_FILE
 
-# Create groups
+# Create groups with identifiable names
 echo "Creating $NUM_GROUPS groups..." | tee -a $LOGS_FILE
 for i in $(seq 1 $NUM_GROUPS); do
-    echo "  Creating group $i/$NUM_GROUPS" | tee -a $LOGS_FILE
-    $CMD generate --entity group --amount 1 --invite 10 2>&1 | tee -a $LOGS_FILE
+    GROUP_NAME="LoadTest_${TEST_ID}_Group_${i}"
+    echo "  Creating group $i/$NUM_GROUPS (Name: $GROUP_NAME)" | tee -a $LOGS_FILE
+    $CMD generate --entity group --amount 1 --invite 10 --name "$GROUP_NAME" 2>&1 | tee -a $LOGS_FILE
 done
 
 # Get group IDs
