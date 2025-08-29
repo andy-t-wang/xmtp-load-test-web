@@ -18,6 +18,7 @@ interface TestRun {
   totalMessages?: number;
   messagesPerSecond?: number;
   groups?: number;
+  dms?: number;
   network?: string;
   inboxId?: string;
   githubUrl?: string;
@@ -262,14 +263,18 @@ export default function TestHistory({
               {(test.status === "completed" || test.status === "failed") && (
                 <div className="mt-3">
                   {test.status === "completed" && (
-                    <div className="grid grid-cols-4 gap-4 text-xs text-gray-600">
+                    <div className="grid grid-cols-5 gap-3 text-xs text-gray-600">
                       <div>
                         <span className="font-medium">Duration:</span>
                         <div className="font-mono">{test.duration}s</div>
                       </div>
                       <div>
                         <span className="font-medium">Groups:</span>
-                        <div className="font-mono">{test.groups || "N/A"}</div>
+                        <div className="font-mono">{test.groups || "0"}</div>
+                      </div>
+                      <div>
+                        <span className="font-medium">DMs:</span>
+                        <div className="font-mono">{test.dms || "0"}</div>
                       </div>
                       <div>
                         <span className="font-medium">Network:</span>

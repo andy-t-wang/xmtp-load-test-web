@@ -315,8 +315,9 @@ export async function GET(
                   // Merge artifact data with result
                   Object.assign(result, {
                     totalMessages: artifactData.totalMessages,
-                    messagesPerSecond: artifactData.messagesPerSecond,
+                    messagesPerSecond: parseFloat(artifactData.messagesPerSecond),
                     groups: artifactData.groups || metadata.groups,
+                    dms: artifactData.dms || 0,
                     network: artifactData.network || metadata.network,
                     inboxId: artifactData.inboxId || metadata.inboxId,
                   })

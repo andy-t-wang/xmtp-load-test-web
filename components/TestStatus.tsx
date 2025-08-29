@@ -12,6 +12,7 @@ interface TestStatusProps {
     totalMessages?: number
     messagesPerSecond?: number
     groups?: number
+    dms?: number
     network?: string
     inboxId?: string
     githubUrl?: string
@@ -28,6 +29,7 @@ interface TestResult {
   totalMessages?: number;
   messagesPerSecond?: number;
   groups?: number;
+  dms?: number;
   logs?: string[];
   githubUrl?: string;
   failureReason?: string;
@@ -48,6 +50,9 @@ export default function TestStatus({ testData, onComplete }: TestStatusProps) {
         totalMessages: testData.totalMessages,
         messagesPerSecond: testData.messagesPerSecond,
         groups: testData.groups,
+        dms: testData.dms,
+        network: testData.network,
+        inboxId: testData.inboxId,
         githubUrl: testData.githubUrl,
         failureReason: testData.failureReason,
       }
@@ -55,6 +60,25 @@ export default function TestStatus({ testData, onComplete }: TestStatusProps) {
     return { status: "running" }
   });
   const [isCancelling, setIsCancelling] = useState(false);
+
+  // Update result when testData changes (when user clicks different test in history)
+  useEffect(() => {
+    if (testData.status) {
+      setResult({
+        status: testData.status,
+        startTime: testData.startTime,
+        duration: testData.duration,
+        totalMessages: testData.totalMessages,
+        messagesPerSecond: testData.messagesPerSecond,
+        groups: testData.groups,
+        dms: testData.dms,
+        network: testData.network,
+        inboxId: testData.inboxId,
+        githubUrl: testData.githubUrl,
+        failureReason: testData.failureReason,
+      })
+    }
+  }, [testData]);
 
   useEffect(() => {
     // If we already have complete data from history, don't poll
@@ -223,10 +247,12 @@ export default function TestStatus({ testData, onComplete }: TestStatusProps) {
                 </span>
               </div>
             )}
-            {result.groups && (
+            {(result.groups || result.dms) && (
               <div>
-                <span className="text-green-600">Groups:</span>
-                <span className="ml-2 font-mono">{result.groups}</span>
+                <span className="text-green-600">Conversations:</span>
+                <span className="ml-2 font-mono">
+                  {result.groups || 0} groups + {result.dms || 0} DMs
+                </span>
               </div>
             )}
           </div>

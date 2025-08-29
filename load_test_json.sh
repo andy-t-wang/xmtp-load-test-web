@@ -36,6 +36,9 @@ echo "Interval between batches: ${INTERVAL}s" | tee -a $LOGS_FILE
 echo "Groups: $NUM_GROUPS" | tee -a $LOGS_FILE
 echo "DMs: $NUM_DMS" | tee -a $LOGS_FILE
 echo "Messages per group per batch: $MESSAGES_PER_GROUP_PER_BATCH" | tee -a $LOGS_FILE
+echo "DEBUG: Script parameters:" | tee -a $LOGS_FILE
+echo "  All args: $@" | tee -a $LOGS_FILE
+echo "  NUM_GROUPS=$NUM_GROUPS, NUM_DMS=$NUM_DMS" | tee -a $LOGS_FILE
 echo "----------------------------------------" | tee -a $LOGS_FILE
 
 # Record start time
@@ -144,6 +147,14 @@ cleanup_and_exit() {
         MSGS_PER_SEC=$(echo "scale=2; $TOTAL_MESSAGES / $ACTUAL_DURATION" | bc -l 2>/dev/null || echo "0")
     fi
     
+    # Debug logging for JSON creation
+    echo "DEBUG: Creating JSON with values:" | tee -a $LOGS_FILE
+    echo "  TOTAL_MESSAGES=$TOTAL_MESSAGES" | tee -a $LOGS_FILE
+    echo "  MSGS_PER_SEC=$MSGS_PER_SEC" | tee -a $LOGS_FILE
+    echo "  NUM_GROUPS=$NUM_GROUPS" | tee -a $LOGS_FILE  
+    echo "  NUM_DMS=$NUM_DMS" | tee -a $LOGS_FILE
+    echo "  TOTAL_CONVOS=$TOTAL_CONVOS" | tee -a $LOGS_FILE
+    
     cat > $RESULTS_FILE << EOF
 {
   "testId": "$TEST_ID",
@@ -207,6 +218,8 @@ while [ "$KEEP_RUNNING" = true ]; do
     # Update total message count (messages go to all groups and DMs)
     MESSAGES_THIS_BATCH=$((TOTAL_CONVOS * MESSAGES_PER_GROUP_PER_BATCH))
     TOTAL_MESSAGES=$((TOTAL_MESSAGES + MESSAGES_THIS_BATCH))
+    
+    echo "DEBUG: Batch $LOOP_COUNT - MESSAGES_THIS_BATCH=$MESSAGES_THIS_BATCH, TOTAL_MESSAGES=$TOTAL_MESSAGES" | tee -a $LOGS_FILE
     
     # Check if we should stop before the sleep
     if [ "$KEEP_RUNNING" != true ]; then
