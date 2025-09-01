@@ -22,7 +22,7 @@ TEST_ID=${7-"test_$(date +%s)"}
 NUM_DMS=${8-5}  # Number of DM conversations (2-person groups)
 USE_EXISTING=${9-false}  # Whether to reuse existing conversations
 
-CMD="${XDBG_PATH:-./target/release/xdbg} -b $NETWORK -v"
+CMD="${XDBG_PATH:-./target/release/xdbg} -b $NETWORK"
 
 # State files
 STATE_FILE="test_state_${TEST_ID}.json"
@@ -300,7 +300,8 @@ send_messages_to_all_conversations() {
     # Each call sends 1 message to all conversations
     # Must be sequential - xdbg can't handle parallel database access
     for msg_num in $(seq 1 $MESSAGES_PER_GROUP_PER_BATCH); do
-        $CMD generate --entity message --amount 1 2>&1 | tee -a $LOGS_FILE
+        # Suppress "No identity with inbox id" errors for external inbox
+        $CMD generate --entity message --amount 1 2>&1 | grep -v "No identity with inbox id" | tee -a $LOGS_FILE || true
     done
 }
 
