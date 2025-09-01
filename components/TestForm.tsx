@@ -27,44 +27,44 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
   const challenges = {
     level1: {
       duration: "30",
-      numGroups: "1",
-      numDms: "1", 
-      interval: "3",
+      numGroups: "2",
+      numDms: "2",
+      interval: "2",
       messagesPerBatch: "1",
-      groupSize: "3",
+      groupSize: "5",
     },
     level2: {
       duration: "60",
-      numGroups: "2",
-      numDms: "2", 
-      interval: "2",
+      numGroups: "5",
+      numDms: "5",
+      interval: "1",
       messagesPerBatch: "2",
-      groupSize: "5",
+      groupSize: "10",
     },
     level3: {
       duration: "120",
-      numGroups: "5",
-      numDms: "3",
-      interval: "1",
-      messagesPerBatch: "3",
-      groupSize: "8",
-    },
-    level4: {
-      duration: "180", 
-      numGroups: "8",
-      numDms: "6",
+      numGroups: "10",
+      numDms: "10",
       interval: "1",
       messagesPerBatch: "4",
-      groupSize: "15",
+      groupSize: "50",
+    },
+    level4: {
+      duration: "300",
+      numGroups: "15",
+      numDms: "15",
+      interval: "1",
+      messagesPerBatch: "5",
+      groupSize: "150",
     },
     level5: {
-      duration: "300", 
-      numGroups: "12",
-      numDms: "10",
-      interval: "0.5",
+      duration: "600",
+      numGroups: "30",
+      numDms: "30",
+      interval: "1",
       messagesPerBatch: "5",
-      groupSize: "25",
-    }
+      groupSize: "225",
+    },
   };
 
   // Load form data from URL parameters on component mount
@@ -181,7 +181,9 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
     }
   };
 
-  const applyChallenge = (challengeLevel: 'level1' | 'level2' | 'level3' | 'level4' | 'level5') => {
+  const applyChallenge = (
+    challengeLevel: "level1" | "level2" | "level3" | "level4" | "level5"
+  ) => {
     const challengeConfig = challenges[challengeLevel];
     const newFormData = {
       ...formData,
@@ -199,53 +201,54 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
           🎯 Challenge Levels
         </h3>
         <div className="text-xs text-gray-500 mb-3">
-          Progressive load testing scenarios - pick your difficulty
+          All levels need to be passed for syncing to be considered ready. See
+          how good your logic is so far 😈.
         </div>
         <div className="grid grid-cols-5 gap-2">
           <button
             type="button"
-            onClick={() => applyChallenge('level1')}
+            onClick={() => applyChallenge("level1")}
             disabled={disabled}
             className="px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="text-green-600 font-medium text-lg">1</div>
-            <div className="text-xs text-gray-500 mt-1">1+1, 30s</div>
+            <div className="text-xs text-gray-500 mt-1">2+2, 30s</div>
           </button>
           <button
             type="button"
-            onClick={() => applyChallenge('level2')}
+            onClick={() => applyChallenge("level2")}
             disabled={disabled}
             className="px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="text-blue-600 font-medium text-lg">2</div>
-            <div className="text-xs text-gray-500 mt-1">2+2, 1m</div>
+            <div className="text-xs text-gray-500 mt-1">5+5, 1m</div>
           </button>
           <button
             type="button"
-            onClick={() => applyChallenge('level3')}
+            onClick={() => applyChallenge("level3")}
             disabled={disabled}
             className="px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="text-yellow-600 font-medium text-lg">3</div>
-            <div className="text-xs text-gray-500 mt-1">5+3, 2m</div>
+            <div className="text-xs text-gray-500 mt-1">10+10, 2m</div>
           </button>
           <button
             type="button"
-            onClick={() => applyChallenge('level4')}
+            onClick={() => applyChallenge("level4")}
             disabled={disabled}
             className="px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="text-orange-600 font-medium text-lg">4</div>
-            <div className="text-xs text-gray-500 mt-1">8+6, 3m</div>
+            <div className="text-xs text-gray-500 mt-1">15+15, 5m</div>
           </button>
           <button
             type="button"
-            onClick={() => applyChallenge('level5')}
+            onClick={() => applyChallenge("level5")}
             disabled={disabled}
             className="px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="text-red-600 font-medium text-lg">5</div>
-            <div className="text-xs text-gray-500 mt-1">12+10, 5m</div>
+            <div className="text-xs text-gray-500 mt-1">30+30, 10m</div>
           </button>
         </div>
       </div>
