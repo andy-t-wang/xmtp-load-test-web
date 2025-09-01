@@ -192,6 +192,11 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
     };
     setFormData(newFormData);
     updateUrlParams(newFormData);
+    
+    // Auto-expand details for levels 4 & 5 (manual testing levels)
+    if (challengeLevel === "level4" || challengeLevel === "level5") {
+      setShowArenaDetails(true);
+    }
   };
 
   return (
