@@ -1,166 +1,186 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { Play, Loader2, Share2, Check, HelpCircle } from 'lucide-react'
+import { useState, useEffect } from "react";
+import { Play, Loader2, Share2, Check, HelpCircle } from "lucide-react";
 
 interface TestFormProps {
-  onTestStart: (testId: string) => void
-  disabled?: boolean
+  onTestStart: (testId: string) => void;
+  disabled?: boolean;
 }
 
 export default function TestForm({ onTestStart, disabled }: TestFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showCopied, setShowCopied] = useState(false)
-  const [showTooltip, setShowTooltip] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCopied, setShowCopied] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
   const [formData, setFormData] = useState({
-    inboxId: '',
-    network: 'dev',
-    duration: '30',
-    numGroups: '5',
-    numDms: '5',
-    interval: '1',
-    messagesPerBatch: '3',
-    useExisting: false
-  })
+    inboxId: "",
+    network: "dev",
+    duration: "30",
+    numGroups: "5",
+    numDms: "5",
+    interval: "1",
+    messagesPerBatch: "3",
+    existingInboxIds: "",
+    existingGroupNames: "",
+  });
 
   // Load form data from URL parameters on component mount
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search)
-    const updatedFormData = { ...formData }
-    
+    const urlParams = new URLSearchParams(window.location.search);
+    const updatedFormData = { ...formData };
+
     // Map URL parameters to form fields
     const paramMap = {
-      inbox: 'inboxId',
-      network: 'network',
-      duration: 'duration',
-      groups: 'numGroups',
-      dms: 'numDms',
-      interval: 'interval',
-      messages: 'messagesPerBatch',
-      existing: 'useExisting'
-    }
-    
+      inbox: "inboxId",
+      network: "network",
+      duration: "duration",
+      groups: "numGroups",
+      dms: "numDms",
+      interval: "interval",
+      messages: "messagesPerBatch",
+      existingInboxIds: "existingInboxIds",
+      existingGroupNames: "existingGroupNames",
+    };
+
     Object.entries(paramMap).forEach(([urlParam, formField]) => {
-      const value = urlParams.get(urlParam)
+      const value = urlParams.get(urlParam);
       if (value) {
-        if (formField === 'useExisting') {
-          updatedFormData[formField as keyof typeof formData] = value === 'true'
-        } else {
-          updatedFormData[formField as keyof typeof formData] = value
-        }
+        updatedFormData[formField as keyof typeof formData] = value;
       }
-    })
-    
-    setFormData(updatedFormData)
-  }, [])
+    });
+
+    setFormData(updatedFormData);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
+    e.preventDefault();
+    setIsSubmitting(true);
 
     try {
-      const testId = `test_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      
-      const response = await fetch('/api/trigger', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, testId })
-      })
+      const testId = `test_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+
+      const response = await fetch("/api/trigger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...formData, testId }),
+      });
 
       if (!response.ok) {
-        throw new Error('Failed to start test')
+        throw new Error("Failed to start test");
       }
 
-      const result = await response.json()
-      onTestStart(testId)
+      const result = await response.json();
+      onTestStart(testId);
     } catch (error) {
-      console.error('Error starting test:', error)
-      alert('Failed to start test. Please try again.')
+      console.error("Error starting test:", error);
+      alert("Failed to start test. Please try again.");
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const value = e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => {
+    const value = e.target.value;
     const newFormData = {
       ...formData,
-      [e.target.name]: value
-    }
-    setFormData(newFormData)
-    
+      [e.target.name]: value,
+    };
+    setFormData(newFormData);
+
     // Update URL parameters
-    updateUrlParams(newFormData)
-  }
+    updateUrlParams(newFormData);
+  };
 
   const updateUrlParams = (data: typeof formData) => {
-    const url = new URL(window.location.href)
-    const params = url.searchParams
-    
+    const url = new URL(window.location.href);
+    const params = url.searchParams;
+
     // Map form fields to URL parameters
     const paramMap = {
-      inboxId: 'inbox',
-      network: 'network',
-      duration: 'duration',
-      numGroups: 'groups',
-      numDms: 'dms',
-      interval: 'interval',
-      messagesPerBatch: 'messages',
-      useExisting: 'existing'
-    }
-    
+      inboxId: "inbox",
+      network: "network",
+      duration: "duration",
+      numGroups: "groups",
+      numDms: "dms",
+      interval: "interval",
+      messagesPerBatch: "messages",
+      existingInboxIds: "existingInboxIds",
+      existingGroupNames: "existingGroupNames",
+    };
+
     Object.entries(paramMap).forEach(([formField, urlParam]) => {
-      const value = data[formField as keyof typeof data]
-      if (value !== undefined && value !== null && value !== '') {
-        params.set(urlParam, String(value))
+      const value = data[formField as keyof typeof data];
+      if (value !== undefined && value !== null && value !== "") {
+        params.set(urlParam, String(value));
       } else {
-        params.delete(urlParam)
+        params.delete(urlParam);
       }
-    })
-    
+    });
+
     // Update URL without page reload
-    window.history.replaceState({}, '', url.toString())
-  }
+    window.history.replaceState({}, "", url.toString());
+  };
 
   const handleShare = async () => {
     try {
-      await navigator.clipboard.writeText(window.location.href)
-      setShowCopied(true)
-      setTimeout(() => setShowCopied(false), 2000)
+      await navigator.clipboard.writeText(window.location.href);
+      setShowCopied(true);
+      setTimeout(() => setShowCopied(false), 2000);
     } catch (error) {
-      console.error('Failed to copy URL:', error)
+      console.error("Failed to copy URL:", error);
       // Fallback: select the URL text
-      const url = window.location.href
-      prompt('Copy this URL to share the test configuration:', url)
+      const url = window.location.href;
+      prompt("Copy this URL to share the test configuration:", url);
     }
-  }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <div className="flex items-center mb-1">
-          <label htmlFor="inboxId" className="block text-sm font-medium text-gray-700">
+          <label
+            htmlFor="inboxId"
+            className="block text-sm font-medium text-gray-700"
+          >
             Inbox ID *
           </label>
-          <div 
+          <div
             className="relative ml-2"
             onMouseEnter={() => setShowTooltip(true)}
             onMouseLeave={() => setShowTooltip(false)}
           >
-            <button
-              type="button"
-              className="text-gray-400 hover:text-gray-600"
-            >
+            <button type="button" className="text-gray-400 hover:text-gray-600">
               <HelpCircle className="w-4 h-4" />
             </button>
-            
+
             {showTooltip && (
               <div className="absolute left-full top-1/2 transform -translate-y-1/2 ml-2 w-72 bg-gray-900 text-white text-xs rounded-lg p-3 shadow-xl z-50">
-                <div className="font-medium mb-1">How to get your Inbox ID:</div>
+                <div className="font-medium mb-1">
+                  How to get your Inbox ID:
+                </div>
                 <div className="space-y-1">
-                  <div>1. Go to <a href="https://xmtp.chat/" target="_blank" rel="noopener noreferrer" className="text-blue-300 hover:text-blue-200 underline">xmtp.chat</a></div>
+                  <div>
+                    1. Go to{" "}
+                    <a
+                      href="https://xmtp.chat/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-300 hover:text-blue-200 underline"
+                    >
+                      xmtp.chat
+                    </a>
+                  </div>
                   <div>2. Connect your wallet</div>
-                  <div>3. Create a chat on the <strong>same network</strong> as your test</div>
+                  <div>
+                    3. Create a chat on the <strong>same network</strong> as
+                    your test
+                  </div>
                   <div>4. Your Inbox ID will be in the URL or chat details</div>
                 </div>
                 {/* Arrow pointing left */}
@@ -184,7 +204,10 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="network" className="block text-sm font-medium text-gray-700">
+          <label
+            htmlFor="network"
+            className="block text-sm font-medium text-gray-700"
+          >
             Network
           </label>
           <select
@@ -203,7 +226,10 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
         </div>
 
         <div>
-          <label htmlFor="duration" className="block text-sm font-medium text-gray-700">
+          <label
+            htmlFor="duration"
+            className="block text-sm font-medium text-gray-700"
+          >
             Duration (seconds)
           </label>
           <input
@@ -222,8 +248,11 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="numGroups" className="block text-sm font-medium text-gray-700">
-            Groups (10 members each)
+          <label
+            htmlFor="numGroups"
+            className="block text-sm font-medium text-gray-700"
+          >
+            New Groups (10 members each)
           </label>
           <input
             type="number"
@@ -239,8 +268,11 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
         </div>
 
         <div>
-          <label htmlFor="numDms" className="block text-sm font-medium text-gray-700">
-            DMs (2-person conversations)
+          <label
+            htmlFor="numDms"
+            className="block text-sm font-medium text-gray-700"
+          >
+            New DMs (2-person conversations)
           </label>
           <input
             type="number"
@@ -258,7 +290,10 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
 
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label htmlFor="interval" className="block text-sm font-medium text-gray-700">
+          <label
+            htmlFor="interval"
+            className="block text-sm font-medium text-gray-700"
+          >
             Interval (sec)
           </label>
           <input
@@ -276,7 +311,10 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
         </div>
 
         <div>
-          <label htmlFor="messagesPerBatch" className="block text-sm font-medium text-gray-700">
+          <label
+            htmlFor="messagesPerBatch"
+            className="block text-sm font-medium text-gray-700"
+          >
             Messages/Batch
           </label>
           <input
@@ -295,30 +333,71 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
         <div className="flex items-end">
           <div className="w-full">
             <div className="text-sm text-gray-500 mb-1">
-              Total Conversations: {parseInt(formData.numGroups) + parseInt(formData.numDms)}
+              Total New Conversations:{" "}
+              {parseInt(formData.numGroups) + parseInt(formData.numDms)}
             </div>
-            <div className="text-xs text-gray-400">
-              Groups + DMs
-            </div>
+            <div className="text-xs text-gray-400">New Groups + New DMs</div>
           </div>
         </div>
       </div>
 
-      <div className="flex items-center">
-        <input
-          type="checkbox"
-          name="useExisting"
-          id="useExisting"
-          checked={formData.useExisting}
-          onChange={handleChange}
-          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-          disabled={disabled}
-        />
-        <label htmlFor="useExisting" className="ml-2 text-sm text-gray-700">
-          Use existing conversations (if available)
-        </label>
-        <div className="ml-2 text-xs text-gray-500">
-          💡 Enable this to continue messaging in previous test conversations instead of creating new ones
+      <div className="space-y-4">
+        <div className="border-t pt-4">
+          <h3 className="text-sm font-medium text-gray-900 mb-3">
+            Existing Conversations to Include
+          </h3>
+          <div className="text-xs text-gray-500 mb-3">
+            💡 Add existing conversations to your load test in addition to any
+            new ones created above
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label
+                htmlFor="existingInboxIds"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Existing Inbox IDs (for DMs)
+              </label>
+              <textarea
+                name="existingInboxIds"
+                id="existingInboxIds"
+                rows={3}
+                value={formData.existingInboxIds}
+                onChange={handleChange}
+                placeholder="inbox1&#10;inbox2&#10;inbox3..."
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm border px-3 py-2"
+                disabled={disabled}
+              />
+              <div className="text-xs text-gray-500 mt-1">
+                One inbox ID per line. These will be used to send DMs to
+                existing conversations.
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="existingGroupNames"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Existing Group Names
+              </label>
+              <textarea
+                name="existingGroupNames"
+                id="existingGroupNames"
+                rows={3}
+                value={formData.existingGroupNames}
+                onChange={handleChange}
+                placeholder="group-1756691234&#10;test-1756691456&#10;group-1756691789..."
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm border px-3 py-2"
+                disabled={disabled}
+              />
+              <div className="text-xs text-gray-500 mt-1">
+                One group name per line. Use the group names from your previous
+                tests.
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -333,9 +412,9 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
           ) : (
             <Play className="w-4 h-4 mr-2" />
           )}
-          {isSubmitting ? 'Starting Test...' : 'Start Load Test'}
+          {isSubmitting ? "Starting Test..." : "Start Load Test"}
         </button>
-        
+
         <button
           type="button"
           onClick={handleShare}
@@ -350,16 +429,18 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
           )}
         </button>
       </div>
-      
+
       {showCopied && (
         <div className="text-center text-sm text-green-600">
-          ✅ URL copied to clipboard! Share this link to reproduce the same test configuration.
+          ✅ URL copied to clipboard! Share this link to reproduce the same test
+          configuration.
         </div>
       )}
-      
+
       <div className="text-xs text-gray-500 text-center">
-        💡 Use the share button to copy a URL with all test parameters for easy reproduction
+        💡 Use the share button to copy a URL with all test parameters for easy
+        reproduction
       </div>
     </form>
-  )
+  );
 }

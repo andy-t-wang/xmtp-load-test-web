@@ -1,6 +1,6 @@
 #!/bin/bash
 # Enhanced load test script with DM support and state persistence
-# USAGE: ./enhanced_load_test.sh <INBOX_ID> [NETWORK] [INTERVAL] [DURATION] [NUM_GROUPS] [MESSAGES_PER_BATCH] [TEST_ID] [NUM_DMS] [USE_EXISTING]
+# USAGE: ./enhanced_load_test.sh <INBOX_ID> [NETWORK] [INTERVAL] [DURATION] [NUM_GROUPS] [MESSAGES_PER_BATCH] [TEST_ID] [NUM_DMS] [EXISTING_INBOX_IDS] [EXISTING_GROUP_NAMES]
 
 set -eou pipefail
 
@@ -8,7 +8,7 @@ if ! jq --version &>/dev/null; then echo "must install jq"; fi
 
 if [ $# -lt 1 ]; then
     echo "Error: INBOX_ID is required"
-    echo "Usage: $0 <INBOX_ID> [NETWORK] [INTERVAL] [DURATION] [NUM_GROUPS] [MESSAGES_PER_BATCH] [TEST_ID] [NUM_DMS] [USE_EXISTING]"
+    echo "Usage: $0 <INBOX_ID> [NETWORK] [INTERVAL] [DURATION] [NUM_GROUPS] [MESSAGES_PER_BATCH] [TEST_ID] [NUM_DMS] [EXISTING_INBOX_IDS] [EXISTING_GROUP_NAMES]"
     exit 1
 fi
 
@@ -20,7 +20,8 @@ NUM_GROUPS=${5-5}
 MESSAGES_PER_GROUP_PER_BATCH=${6-3}
 TEST_ID=${7-"test_$(date +%s)"}
 NUM_DMS=${8-5}  # Number of DM conversations (2-person groups)
-USE_EXISTING=${9-false}  # Whether to reuse existing conversations
+EXISTING_INBOX_IDS=${9-""}  # Existing inbox IDs for DMs (newline-separated)
+EXISTING_GROUP_NAMES=${10-""}  # Existing group names (newline-separated)
 
 CMD="${XDBG_PATH:-./target/release/xdbg} -b $NETWORK"
 
@@ -37,7 +38,8 @@ echo "Duration: ${DURATION}s" | tee -a $LOGS_FILE
 echo "Interval between batches: ${INTERVAL}s" | tee -a $LOGS_FILE
 echo "Groups: $NUM_GROUPS" | tee -a $LOGS_FILE
 echo "DMs: $NUM_DMS" | tee -a $LOGS_FILE
-echo "Use existing conversations: $USE_EXISTING" | tee -a $LOGS_FILE
+echo "Existing Inbox IDs: $EXISTING_INBOX_IDS" | tee -a $LOGS_FILE
+echo "Existing Group Names: $EXISTING_GROUP_NAMES" | tee -a $LOGS_FILE
 echo "Messages per conversation per batch: $MESSAGES_PER_GROUP_PER_BATCH" | tee -a $LOGS_FILE
 echo "State file: $STATE_FILE" | tee -a $LOGS_FILE
 echo "----------------------------------------" | tee -a $LOGS_FILE
@@ -122,158 +124,193 @@ get_conversation_count() {
     fi
 }
 
-# Check if we should use existing conversations
-EXISTING_CONVERSATIONS=""
-EXISTING_COUNT=0
-
-if [ "$USE_EXISTING" = "true" ] && load_state; then
-    EXISTING_CONVERSATIONS=$(get_existing_conversations)
-    EXISTING_COUNT=$(get_conversation_count)
+# Function to process existing conversations from inputs
+process_existing_conversations() {
+    local existing_convos_from_input=()
     
-    if [ $EXISTING_COUNT -gt 0 ]; then
-        echo "🔄 Found $EXISTING_COUNT existing conversations:" | tee -a $LOGS_FILE
-        echo "$EXISTING_CONVERSATIONS" | head -10 | while read -r conv_id; do
-            [ -n "$conv_id" ] && echo "  - $conv_id" | tee -a $LOGS_FILE
-        done
-        if [ $EXISTING_COUNT -gt 10 ]; then
-            echo "  ... and $((EXISTING_COUNT - 10)) more" | tee -a $LOGS_FILE
-        fi
-    else
-        echo "⚠️  No valid conversations found in existing state, creating new ones" | tee -a $LOGS_FILE
-        USE_EXISTING=false
-    fi
-else
-    echo "🏗️  Creating new conversations" | tee -a $LOGS_FILE
-    USE_EXISTING=false
-fi
-
-# Initialize or reset state if not using existing
-if [ "$USE_EXISTING" != "true" ]; then
-    initialize_state
-    
-    # Clear and initialize (xdbg already built in previous step)
-    echo "🔧 Initializing xdbg..." | tee -a $LOGS_FILE
-    ${XDBG_PATH:-./target/release/xdbg} --clear 2>&1 | tee -a $LOGS_FILE
-    $CMD --clear 2>&1 | tee -a $LOGS_FILE
-
-    # Test if xdbg supports DM creation
-    if [ $NUM_DMS -gt 0 ]; then
-        echo "🔍 Testing xdbg DM support..." | tee -a $LOGS_FILE
-        DM_HELP_OUTPUT=$($CMD generate --help 2>&1 | grep -i "dm\|entity" || true)
-        echo "  Available entities: $DM_HELP_OUTPUT" | tee -a $LOGS_FILE
-        
-        # Test if dm is a valid entity
-        if ! $CMD generate --help 2>&1 | grep -q "dm"; then
-            echo "  ⚠️  xdbg may not support dm entity - this version may not have DM support" | tee -a $LOGS_FILE
-        else
-            echo "  ✅ xdbg supports dm entity" | tee -a $LOGS_FILE
-        fi
-    fi
-
-    # Generate identities for group members (more than needed to ensure variety)
-    TOTAL_CONVERSATIONS=$((NUM_GROUPS + NUM_DMS))
-    IDENTITIES_NEEDED=$((TOTAL_CONVERSATIONS * 10 + 10))  # Extra identities for variety
-    echo "🆔 Generating $IDENTITIES_NEEDED identities..." | tee -a $LOGS_FILE
-    $CMD generate --entity identity --amount $IDENTITIES_NEEDED 2>&1 | tee -a $LOGS_FILE
-
-    # Create group conversations (larger groups)
-    if [ $NUM_GROUPS -gt 0 ]; then
-        echo "👥 Creating $NUM_GROUPS group conversations (will have 10+ members each after adding target)..." | tee -a $LOGS_FILE
-        for i in $(seq 1 $NUM_GROUPS); do
-            echo "  Creating group $i/$NUM_GROUPS (9 initial members, target will be added later)" | tee -a $LOGS_FILE
-            GROUP_OUTPUT=$($CMD generate --entity group --amount 1 --invite 9 2>&1 | tee -a $LOGS_FILE)
-            
-            # Extract group ID from output (xdbg should output the created group ID)
-            # This is a simplified approach - in practice we'd need to parse xdbg output properly
-        done
-    fi
-
-    # Create DM conversations (true 2-person DM conversations)
-    if [ $NUM_DMS -gt 0 ]; then
-        echo "💬 Creating $NUM_DMS true DM conversations (2 members each)..." | tee -a $LOGS_FILE
-        for i in $(seq 1 $NUM_DMS); do
-            echo "  Creating DM $i/$NUM_DMS with target inbox $INBOX_ID" | tee -a $LOGS_FILE
-            echo "  Debug: Running command: $CMD generate --entity dm --amount 1 --target-inbox $INBOX_ID" | tee -a $LOGS_FILE
-            
-            # Try to create DM and capture both stdout and stderr
-            set +e  # Temporarily disable exit on error
-            DM_OUTPUT=$($CMD generate --entity dm --amount 1 --target-inbox $INBOX_ID 2>&1)
-            DM_EXIT_CODE=$?
-            set -e  # Re-enable exit on error
-            
-            echo "$DM_OUTPUT" | tee -a $LOGS_FILE
-            
-            if [ $DM_EXIT_CODE -ne 0 ]; then
-                echo "  ❌ DM creation failed with exit code $DM_EXIT_CODE" | tee -a $LOGS_FILE
-                echo "  Full error output:" | tee -a $LOGS_FILE
-                echo "$DM_OUTPUT" | tee -a $LOGS_FILE
-                
-                # Fallback to creating 2-person group
-                echo "  🔄 Falling back to creating 2-person group..." | tee -a $LOGS_FILE
+    # Process existing inbox IDs (for DMs)
+    if [ -n "$EXISTING_INBOX_IDS" ]; then
+        echo "📨 Processing existing inbox IDs for DMs..." | tee -a $LOGS_FILE
+        echo "$EXISTING_INBOX_IDS" | while IFS= read -r line; do
+            line=$(echo "$line" | tr -d '\r\n' | xargs)  # Clean whitespace
+            if [ -n "$line" ]; then
+                echo "  Creating DM with existing inbox: $line" | tee -a $LOGS_FILE
+                # Create DM with existing inbox
                 set +e
-                FALLBACK_OUTPUT=$($CMD generate --entity group --amount 1 --invite 0 2>&1)
-                FALLBACK_EXIT_CODE=$?
+                DM_OUTPUT=$($CMD generate --entity dm --amount 1 --target-inbox "$line" 2>&1)
+                DM_EXIT_CODE=$?
                 set -e
                 
-                echo "$FALLBACK_OUTPUT" | tee -a $LOGS_FILE
-                
-                if [ $FALLBACK_EXIT_CODE -eq 0 ]; then
-                    echo "  ✅ Fallback: Created 2-person group as DM substitute" | tee -a $LOGS_FILE
+                if [ $DM_EXIT_CODE -eq 0 ]; then
+                    echo "    ✅ DM created successfully" | tee -a $LOGS_FILE
                 else
-                    echo "  ❌ Fallback also failed with exit code $FALLBACK_EXIT_CODE" | tee -a $LOGS_FILE
+                    echo "    ❌ Failed to create DM: $DM_OUTPUT" | tee -a $LOGS_FILE
                 fi
-            else
-                echo "  ✅ DM $i created successfully" | tee -a $LOGS_FILE
             fi
         done
     fi
-
-    # Export and save all conversations to state
-    EXPORT=$(mktemp)
-    echo "📋 Exporting conversations to state..." | tee -a $LOGS_FILE
-    $CMD export --entity group --out $EXPORT 2>&1 | tee -a $LOGS_FILE
-
-    # Process exported groups and save to state
-    TOTAL_CONVOS=$((NUM_GROUPS + NUM_DMS))
-    ALL_GROUP_IDS=($(jq -r '.[].id' $EXPORT | head -$TOTAL_CONVOS))
-
-    # Save groups to state (first NUM_GROUPS are regular groups)
-    for i in $(seq 0 $((NUM_GROUPS - 1))); do
-        if [ $i -lt ${#ALL_GROUP_IDS[@]} ]; then
-            group_id="${ALL_GROUP_IDS[$i]}"
-            save_conversation "$group_id" "group" 10  # 9 invited + 1 creator + 1 target = 11, but calling it 10 for simplicity
-        fi
-    done
-
-    # Save DMs to state (remaining are DMs)
-    for i in $(seq $NUM_GROUPS $((TOTAL_CONVOS - 1))); do
-        if [ $i -lt ${#ALL_GROUP_IDS[@]} ]; then
-            dm_id="${ALL_GROUP_IDS[$i]}"
-            save_conversation "$dm_id" "dm" 2  # 1 creator + 1 target = 2 members total
-        fi
-    done
-
-    # Add the specified inbox to group conversations only
-    # DMs already have the target inbox included during creation
-    echo "➕ Adding inbox $INBOX_ID to group conversations..." | tee -a $LOGS_FILE
     
-    # Add to groups only
-    for i in $(seq 0 $((NUM_GROUPS - 1))); do
-        if [ $i -lt ${#ALL_GROUP_IDS[@]} ]; then
-            group_id="${ALL_GROUP_IDS[$i]}"
-            echo "  Adding to group $((i+1))/$NUM_GROUPS (ID: ${group_id:0:8}...)" | tee -a $LOGS_FILE
-            $CMD modify --inbox-id $INBOX_ID add-external "$group_id" 2>&1 | tee -a $LOGS_FILE || echo "  ⚠️  Failed to add to group" | tee -a $LOGS_FILE
-        fi
-    done
-    
-    echo "✅ DMs already include target inbox from creation, groups updated with target inbox" | tee -a $LOGS_FILE
+    # Process existing group names
+    if [ -n "$EXISTING_GROUP_NAMES" ]; then
+        echo "👥 Processing existing group names..." | tee -a $LOGS_FILE
+        echo "$EXISTING_GROUP_NAMES" | while IFS= read -r line; do
+            line=$(echo "$line" | tr -d '\r\n' | xargs)  # Clean whitespace  
+            if [ -n "$line" ]; then
+                echo "  Looking for existing group: $line" | tee -a $LOGS_FILE
+                # Note: We'll need to implement group lookup by name
+                # For now, just log that we would process it
+                echo "    ⚠️  Group lookup by name not yet implemented" | tee -a $LOGS_FILE
+            fi
+        done
+    fi
+}
 
-    rm -f $EXPORT
-    update_state
+# Check if we have any existing conversations to process
+HAS_EXISTING_INPUTS=false
+if [ -n "$EXISTING_INBOX_IDS" ] || [ -n "$EXISTING_GROUP_NAMES" ]; then
+    HAS_EXISTING_INPUTS=true
+    echo "🔄 Found existing conversation inputs to process" | tee -a $LOGS_FILE
 else
-    # Using existing conversations - just get the IDs
-    ALL_GROUP_IDS=($(get_existing_conversations | head -50))  # Limit to reasonable number
+    echo "🏗️  No existing conversations specified, will create new ones only" | tee -a $LOGS_FILE
 fi
+
+# Initialize state for this test
+initialize_state
+    
+# Clear and initialize (xdbg already built in previous step)
+echo "🔧 Initializing xdbg..." | tee -a $LOGS_FILE
+${XDBG_PATH:-./target/release/xdbg} --clear 2>&1 | tee -a $LOGS_FILE
+$CMD --clear 2>&1 | tee -a $LOGS_FILE
+
+# Test if xdbg supports DM creation
+if [ $NUM_DMS -gt 0 ] || [ -n "$EXISTING_INBOX_IDS" ]; then
+    echo "🔍 Testing xdbg DM support..." | tee -a $LOGS_FILE
+    DM_HELP_OUTPUT=$($CMD generate --help 2>&1 | grep -i "dm\|entity" || true)
+    echo "  Available entities: $DM_HELP_OUTPUT" | tee -a $LOGS_FILE
+    
+    # Test if dm is a valid entity
+    if ! $CMD generate --help 2>&1 | grep -q "dm"; then
+        echo "  ⚠️  xdbg may not support dm entity - this version may not have DM support" | tee -a $LOGS_FILE
+    else
+        echo "  ✅ xdbg supports dm entity" | tee -a $LOGS_FILE
+    fi
+fi
+
+# Generate identities for group members (more than needed to ensure variety)
+TOTAL_NEW_CONVERSATIONS=$((NUM_GROUPS + NUM_DMS))
+IDENTITIES_NEEDED=$((TOTAL_NEW_CONVERSATIONS * 10 + 10))  # Extra identities for variety
+echo "🆔 Generating $IDENTITIES_NEEDED identities..." | tee -a $LOGS_FILE
+$CMD generate --entity identity --amount $IDENTITIES_NEEDED 2>&1 | tee -a $LOGS_FILE
+
+# Process existing conversations first
+if [ "$HAS_EXISTING_INPUTS" = "true" ]; then
+    process_existing_conversations
+fi
+
+# Create new group conversations (larger groups)
+if [ $NUM_GROUPS -gt 0 ]; then
+    echo "👥 Creating $NUM_GROUPS NEW group conversations (will have 10+ members each after adding target)..." | tee -a $LOGS_FILE
+    for i in $(seq 1 $NUM_GROUPS); do
+        echo "  Creating group $i/$NUM_GROUPS (9 initial members, target will be added later)" | tee -a $LOGS_FILE
+        GROUP_OUTPUT=$($CMD generate --entity group --amount 1 --invite 9 2>&1 | tee -a $LOGS_FILE)
+        
+        # Extract group ID from output (xdbg should output the created group ID)
+        # This is a simplified approach - in practice we'd need to parse xdbg output properly
+    done
+fi
+
+# Create new DM conversations (true 2-person DM conversations)
+if [ $NUM_DMS -gt 0 ]; then
+    echo "💬 Creating $NUM_DMS NEW true DM conversations (2 members each)..." | tee -a $LOGS_FILE
+    for i in $(seq 1 $NUM_DMS); do
+        echo "  Creating DM $i/$NUM_DMS with target inbox $INBOX_ID" | tee -a $LOGS_FILE
+        echo "  Debug: Running command: $CMD generate --entity dm --amount 1 --target-inbox $INBOX_ID" | tee -a $LOGS_FILE
+        
+        # Try to create DM and capture both stdout and stderr
+        set +e  # Temporarily disable exit on error
+        DM_OUTPUT=$($CMD generate --entity dm --amount 1 --target-inbox $INBOX_ID 2>&1)
+        DM_EXIT_CODE=$?
+        set -e  # Re-enable exit on error
+        
+        echo "$DM_OUTPUT" | tee -a $LOGS_FILE
+        
+        if [ $DM_EXIT_CODE -ne 0 ]; then
+            echo "  ❌ DM creation failed with exit code $DM_EXIT_CODE" | tee -a $LOGS_FILE
+            echo "  Full error output:" | tee -a $LOGS_FILE
+            echo "$DM_OUTPUT" | tee -a $LOGS_FILE
+            
+            # Fallback to creating 2-person group
+            echo "  🔄 Falling back to creating 2-person group..." | tee -a $LOGS_FILE
+            set +e
+            FALLBACK_OUTPUT=$($CMD generate --entity group --amount 1 --invite 0 2>&1)
+            FALLBACK_EXIT_CODE=$?
+            set -e
+            
+            echo "$FALLBACK_OUTPUT" | tee -a $LOGS_FILE
+            
+            if [ $FALLBACK_EXIT_CODE -eq 0 ]; then
+                echo "  ✅ Fallback: Created 2-person group as DM substitute" | tee -a $LOGS_FILE
+            else
+                echo "  ❌ Fallback also failed with exit code $FALLBACK_EXIT_CODE" | tee -a $LOGS_FILE
+            fi
+        else
+            echo "  ✅ DM $i created successfully" | tee -a $LOGS_FILE
+        fi
+    done
+fi
+
+# Export and save all conversations to state
+EXPORT=$(mktemp)
+echo "📋 Exporting all conversations to state..." | tee -a $LOGS_FILE
+$CMD export --entity group --out $EXPORT 2>&1 | tee -a $LOGS_FILE
+
+# Process exported groups and save to state
+ALL_GROUP_IDS=($(jq -r '.[].id' $EXPORT))
+TOTAL_CONVOS=${#ALL_GROUP_IDS[@]}
+
+echo "📊 Total conversations found: $TOTAL_CONVOS" | tee -a $LOGS_FILE
+
+# Save all conversations to state (we can't easily distinguish types after export, so we'll estimate)
+GROUPS_SAVED=0
+DMS_SAVED=0
+
+for group_id in "${ALL_GROUP_IDS[@]}"; do
+    # Get member count from export data
+    MEMBER_COUNT=$(jq -r ".[] | select(.id == \"$group_id\") | .memberSize" $EXPORT)
+    
+    # Classify as DM if 2 members, otherwise group
+    if [ "$MEMBER_COUNT" = "2" ]; then
+        save_conversation "$group_id" "dm" 2
+        DMS_SAVED=$((DMS_SAVED + 1))
+    else
+        save_conversation "$group_id" "group" "$MEMBER_COUNT"
+        GROUPS_SAVED=$((GROUPS_SAVED + 1))
+    fi
+done
+
+echo "💾 Saved conversations: $GROUPS_SAVED groups, $DMS_SAVED DMs" | tee -a $LOGS_FILE
+
+# Add the specified inbox to group conversations only
+# DMs already have the target inbox included during creation
+echo "➕ Adding inbox $INBOX_ID to group conversations..." | tee -a $LOGS_FILE
+
+# Add to groups only (skip DMs which already have the target)
+GROUP_COUNT=0
+for group_id in "${ALL_GROUP_IDS[@]}"; do
+    MEMBER_COUNT=$(jq -r ".[] | select(.id == \"$group_id\") | .memberSize" $EXPORT)
+    
+    # Only add to groups (not DMs)
+    if [ "$MEMBER_COUNT" != "2" ]; then
+        GROUP_COUNT=$((GROUP_COUNT + 1))
+        echo "  Adding to group $GROUP_COUNT (ID: ${group_id:0:8}..., members: $MEMBER_COUNT)" | tee -a $LOGS_FILE
+        $CMD modify --inbox-id $INBOX_ID add-external "$group_id" 2>&1 | tee -a $LOGS_FILE || echo "  ⚠️  Failed to add to group" | tee -a $LOGS_FILE
+    fi
+done
+
+echo "✅ DMs already include target inbox from creation, $GROUP_COUNT groups updated with target inbox" | tee -a $LOGS_FILE
+
+rm -f $EXPORT
+update_state
 
 TOTAL_CONVOS=${#ALL_GROUP_IDS[@]}
 echo "✅ Using $TOTAL_CONVOS conversations for load testing" | tee -a $LOGS_FILE
@@ -284,15 +321,8 @@ if [ $TOTAL_CONVOS -eq 0 ]; then
 fi
 
 # Count conversation types from state for display
-ACTUAL_GROUPS=0
-ACTUAL_DMS=0
-if [ -f "$STATE_FILE" ]; then
-    ACTUAL_GROUPS=$(jq '[.conversations[] | select(.type == "group")] | length' "$STATE_FILE" 2>/dev/null || echo "0")
-    ACTUAL_DMS=$(jq '[.conversations[] | select(.type == "dm")] | length' "$STATE_FILE" 2>/dev/null || echo "0")
-else
-    ACTUAL_GROUPS=$NUM_GROUPS
-    ACTUAL_DMS=$NUM_DMS
-fi
+ACTUAL_GROUPS=$GROUPS_SAVED
+ACTUAL_DMS=$DMS_SAVED
 
 # Function to send messages to all conversations
 send_messages_to_all_conversations() {
@@ -361,7 +391,8 @@ cleanup_and_exit() {
   "interval": $INTERVAL,
   "network": "$NETWORK",
   "inboxId": "$INBOX_ID",
-  "usedExisting": $([ "$USE_EXISTING" = "true" ] && echo "true" || echo "false"),
+  "existingInboxIds": "$EXISTING_INBOX_IDS",
+  "existingGroupNames": "$EXISTING_GROUP_NAMES",
   "stateFile": "$STATE_FILE"
 }
 EOF
