@@ -46,16 +46,6 @@ on:
         description: "Unique test identifier"
         required: true
         type: string
-      existing_inbox_ids:
-        description: "Existing inbox IDs for DMs (one per line)"
-        required: false
-        type: string
-        default: ""
-      existing_group_names:
-        description: "Existing group names (one per line)"
-        required: false
-        type: string
-        default: ""
 
 jobs:
   load-test:
@@ -73,8 +63,6 @@ jobs:
           echo "Groups: ${{ inputs.num_groups }}"
           echo "DMs: ${{ inputs.num_dms }}"
           echo "Inbox ID: ${{ inputs.inbox_id }}"
-          echo "Existing Inbox IDs: ${{ inputs.existing_inbox_ids }}"
-          echo "Existing Group Names: ${{ inputs.existing_group_names }}"
 
       - name: Checkout this repo
         uses: actions/checkout@v4
@@ -193,12 +181,10 @@ jobs:
           MESSAGES_PER_BATCH: ${{ inputs.messages_per_batch }}
           TEST_ID: ${{ inputs.test_id }}
           NUM_DMS: ${{ inputs.num_dms }}
-          EXISTING_INBOX_IDS: ${{ inputs.existing_inbox_ids }}
-          EXISTING_GROUP_NAMES: ${{ inputs.existing_group_names }}
           XDBG_PATH: ${{ env.LIBXMTP_PATH }}/target/release/xdbg
         run: |
           chmod +x enhanced_load_test.sh
-          ./enhanced_load_test.sh "$INBOX_ID" "$NETWORK" "$INTERVAL" "$DURATION" "$NUM_GROUPS" "$MESSAGES_PER_BATCH" "$TEST_ID" "$NUM_DMS" "$EXISTING_INBOX_IDS" "$EXISTING_GROUP_NAMES"
+          ./enhanced_load_test.sh "$INBOX_ID" "$NETWORK" "$INTERVAL" "$DURATION" "$NUM_GROUPS" "$MESSAGES_PER_BATCH" "$TEST_ID" "$NUM_DMS"
 
       - name: Upload Results
         uses: actions/upload-artifact@v4

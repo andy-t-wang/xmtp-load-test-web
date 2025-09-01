@@ -20,8 +20,6 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
     numDms: "5",
     interval: "1",
     messagesPerBatch: "3",
-    existingInboxIds: "",
-    existingGroupNames: "",
   });
 
   // Load form data from URL parameters on component mount
@@ -38,8 +36,6 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
       dms: "numDms",
       interval: "interval",
       messages: "messagesPerBatch",
-      existingInboxIds: "existingInboxIds",
-      existingGroupNames: "existingGroupNames",
     };
 
     Object.entries(paramMap).forEach(([urlParam, formField]) => {
@@ -110,8 +106,6 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
       numDms: "dms",
       interval: "interval",
       messagesPerBatch: "messages",
-      existingInboxIds: "existingInboxIds",
-      existingGroupNames: "existingGroupNames",
     };
 
     Object.entries(paramMap).forEach(([formField, urlParam]) => {
@@ -341,65 +335,6 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
         </div>
       </div>
 
-      <div className="space-y-4">
-        <div className="border-t pt-4">
-          <h3 className="text-sm font-medium text-gray-900 mb-3">
-            Existing Conversations to Include
-          </h3>
-          <div className="text-xs text-gray-500 mb-3">
-            💡 Add existing conversations to your load test in addition to any
-            new ones created above
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label
-                htmlFor="existingInboxIds"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Existing Inbox IDs (for DMs)
-              </label>
-              <textarea
-                name="existingInboxIds"
-                id="existingInboxIds"
-                rows={3}
-                value={formData.existingInboxIds}
-                onChange={handleChange}
-                placeholder="inbox1&#10;inbox2&#10;inbox3..."
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm border px-3 py-2"
-                disabled={disabled}
-              />
-              <div className="text-xs text-gray-500 mt-1">
-                One inbox ID per line. These will be used to send DMs to
-                existing conversations.
-              </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="existingGroupNames"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Existing Group Names
-              </label>
-              <textarea
-                name="existingGroupNames"
-                id="existingGroupNames"
-                rows={3}
-                value={formData.existingGroupNames}
-                onChange={handleChange}
-                placeholder="group-1756691234&#10;test-1756691456&#10;group-1756691789..."
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm border px-3 py-2"
-                disabled={disabled}
-              />
-              <div className="text-xs text-gray-500 mt-1">
-                One group name per line. Use the group names from your previous
-                tests.
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div className="flex space-x-3">
         <button

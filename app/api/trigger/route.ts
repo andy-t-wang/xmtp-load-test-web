@@ -11,9 +11,7 @@ export async function POST(request: NextRequest) {
       numDms, 
       interval, 
       messagesPerBatch, 
-      testId,
-      existingInboxIds,
-      existingGroupNames 
+      testId 
     } = body
 
     // Validate required fields
@@ -54,8 +52,6 @@ export async function POST(request: NextRequest) {
       interval: interval || '1',
       messages_per_batch: messagesPerBatch || '3',
       test_id: testId,
-      existing_inbox_ids: existingInboxIds || '',
-      existing_group_names: existingGroupNames || '',
     })
 
     // Trigger GitHub Actions workflow
@@ -79,8 +75,6 @@ export async function POST(request: NextRequest) {
             interval: interval || '1',
             messages_per_batch: messagesPerBatch || '3',
             test_id: testId,
-            existing_inbox_ids: existingInboxIds || '',
-            existing_group_names: existingGroupNames || '',
           },
         }),
       }
