@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Play, Loader2, Share2, Check, HelpCircle } from "lucide-react";
+import { Play, Loader2, Share2, Check, HelpCircle, ChevronDown, ChevronUp } from "lucide-react";
 
 interface TestFormProps {
   onTestStart: (testId: string) => void;
@@ -12,6 +12,7 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [showArenaDetails, setShowArenaDetails] = useState(false);
   const [formData, setFormData] = useState({
     inboxId: "",
     network: "dev",
@@ -195,84 +196,117 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Challenges Section */}
-      <div className="bg-gray-50 p-4 rounded-lg border">
-        <h3 className="text-sm font-medium text-gray-900 mb-3">
-          🎯 Survive the Arena
-        </h3>
-        <div className="text-xs text-gray-500 mb-3">
-          All levels need to be passed for syncing to be considered ready. See
-          how good your logic is so far 😈.
+      {/* Challenges Section - Compact */}
+      <div className="bg-gray-50 p-3 rounded-lg border">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-medium text-gray-900">
+              🎯 Survive the Arena
+            </h3>
+            <button
+              type="button"
+              onClick={() => setShowArenaDetails(!showArenaDetails)}
+              className="text-gray-400 hover:text-gray-600"
+              title={showArenaDetails ? "Hide details" : "Show details"}
+            >
+              {showArenaDetails ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+          {!showArenaDetails && (
+            <div className="text-xs text-gray-500">
+              Quick challenges 😈
+            </div>
+          )}
         </div>
-        <div className="grid grid-cols-5 gap-2">
+        
+        <div className="grid grid-cols-5 gap-1.5">
           <button
             type="button"
             onClick={() => applyChallenge("level1")}
             disabled={disabled}
-            className="px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-1.5 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Level 1: 2 groups + 2 DMs, 30 seconds"
           >
-            <div className="text-green-600 font-medium text-lg">1</div>
-            <div className="text-xs text-gray-500 mt-1">2+2, 30s</div>
+            <div className="text-green-600 font-medium">1</div>
+            <div className="text-xs text-gray-500">2+2</div>
           </button>
           <button
             type="button"
             onClick={() => applyChallenge("level2")}
             disabled={disabled}
-            className="px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-1.5 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Level 2: 5 groups + 5 DMs, 1 minute"
           >
-            <div className="text-blue-600 font-medium text-lg">2</div>
-            <div className="text-xs text-gray-500 mt-1">5+5, 1m</div>
+            <div className="text-blue-600 font-medium">2</div>
+            <div className="text-xs text-gray-500">5+5</div>
           </button>
           <button
             type="button"
             onClick={() => applyChallenge("level3")}
             disabled={disabled}
-            className="px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-1.5 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Level 3: 10 groups + 10 DMs, 2 minutes"
           >
-            <div className="text-yellow-600 font-medium text-lg">3</div>
-            <div className="text-xs text-gray-500 mt-1">10+10, 2m</div>
+            <div className="text-yellow-600 font-medium">3</div>
+            <div className="text-xs text-gray-500">10+10</div>
           </button>
           <button
             type="button"
             onClick={() => applyChallenge("level4")}
             disabled={disabled}
-            className="px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-1.5 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Level 4: 15 groups + 15 DMs, 7.5 minutes (manual testing)"
           >
-            <div className="text-orange-600 font-medium text-lg">4</div>
-            <div className="text-xs text-gray-500 mt-1">15+15, 7.5m</div>
+            <div className="text-orange-600 font-medium">4</div>
+            <div className="text-xs text-gray-500">15+15</div>
           </button>
           <button
             type="button"
             onClick={() => applyChallenge("level5")}
             disabled={disabled}
-            className="px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-1.5 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Level 5: 30 groups + 30 DMs, 15 minutes (extensive manual testing)"
           >
-            <div className="text-red-600 font-medium text-lg">5</div>
-            <div className="text-xs text-gray-500 mt-1">30+30, 15m</div>
+            <div className="text-red-600 font-medium">5</div>
+            <div className="text-xs text-gray-500">30+30</div>
           </button>
         </div>
 
-        {/* Manual Testing Instructions for Levels 4 & 5 */}
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-          <h4 className="text-sm font-medium text-blue-900 mb-2">
-            📱 Levels 4 & 5: Manual Testing Instructions
-          </h4>
-          <div className="text-xs text-blue-800 space-y-1">
-            <div>
-              <strong>During the test:</strong>
+        {/* Expanded Details */}
+        {showArenaDetails && (
+          <div className="mt-3 space-y-3">
+            <div className="text-xs text-gray-500">
+              All levels need to be passed for syncing to be considered ready. See
+              how good your logic is so far 😈.
             </div>
-            <div>1. Accept some of the incoming message requests</div>
-            <div>2. Kill the app and restart it</div>
-            <div>
-              3. Switch between conversations and send messages yourself
-            </div>
-            <div>4. Try to accept more messages while load test is running</div>
-            <div className="mt-2 text-blue-600">
-              💡 Extended durations (7.5m & 15m) give you time for manual
-              interaction
+            
+            {/* Manual Testing Instructions for Levels 4 & 5 */}
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <h4 className="text-sm font-medium text-blue-900 mb-2">
+                📱 Levels 4 & 5: Manual Testing Instructions
+              </h4>
+              <div className="text-xs text-blue-800 space-y-1">
+                <div>
+                  <strong>During the test:</strong>
+                </div>
+                <div>1. Accept some of the incoming message requests</div>
+                <div>2. Kill the app and restart it</div>
+                <div>
+                  3. Switch between conversations and send messages yourself
+                </div>
+                <div>4. Try to accept more messages while load test is running</div>
+                <div className="mt-2 text-blue-600">
+                  💡 Extended durations (7.5m & 15m) give you time for manual
+                  interaction
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div>
