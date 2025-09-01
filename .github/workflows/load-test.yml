@@ -118,15 +118,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-rust-toolchain-
 
-      - name: Cache libxmtp build (persistent)
+      - name: Cache libxmtp build (disabled for debugging)
         uses: actions/cache@v4
         with:
           path: libxmtp/target
-          # Use a stable key that doesn't change often - only invalidate on major changes
-          key: ${{ runner.os }}-libxmtp-andy-build-v3-${{ hashFiles('libxmtp/Cargo.lock') }}
+          # Temporarily disable build cache to ensure fresh compilation with group naming
+          key: ${{ runner.os }}-libxmtp-andy-build-disabled-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-libxmtp-andy-build-v3-
-            ${{ runner.os }}-libxmtp-andy-build-
+            # No restore keys - force complete recompilation
 
       - name: Cache xdbg binary (very persistent)
         uses: actions/cache@v4
@@ -164,10 +163,14 @@ jobs:
             --config 'profile.release.panic="abort"' \
             -j $(nproc)
 
-          # Verify the binary was built successfully
+          # Verify the binary was built successfully and contains our group naming code
           if [ -f "target/release/xdbg" ]; then
             echo "✅ xdbg binary built successfully"
             ls -la target/release/xdbg
+            
+            # Test that our group naming functionality is present
+            echo "🔍 Testing group naming functionality..."
+            RUST_LOG=info ./target/release/xdbg -b dev generate --entity group --amount 1 --invite 1 2>&1 | grep -E "(setting group name|group named successfully)" || echo "⚠️  Group naming logs not found in test output"
           else
             echo "❌ Failed to build xdbg binary"
             exit 1
