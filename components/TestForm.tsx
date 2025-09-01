@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Play, Loader2, Share2, Check, HelpCircle, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Play,
+  Loader2,
+  Share2,
+  Check,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 
 interface TestFormProps {
   onTestStart: (testId: string) => void;
@@ -192,7 +200,7 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
     };
     setFormData(newFormData);
     updateUrlParams(newFormData);
-    
+
     // Auto-expand details for levels 4 & 5 (manual testing levels)
     if (challengeLevel === "level4" || challengeLevel === "level5") {
       setShowArenaDetails(true);
@@ -222,12 +230,10 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
             </button>
           </div>
           {!showArenaDetails && (
-            <div className="text-xs text-gray-500">
-              Quick challenges 😈
-            </div>
+            <div className="text-xs text-gray-500">Levels</div>
           )}
         </div>
-        
+
         <div className="grid grid-cols-5 gap-1.5">
           <button
             type="button"
@@ -285,10 +291,10 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
         {showArenaDetails && (
           <div className="mt-3 space-y-3">
             <div className="text-xs text-gray-500">
-              All levels need to be passed for syncing to be considered ready. See
-              how good your logic is so far 😈.
+              All levels need to be passed for syncing to be considered ready.
+              See how good your logic is so far 😈.
             </div>
-            
+
             {/* Manual Testing Instructions for Levels 4 & 5 */}
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
               <h4 className="text-sm font-medium text-blue-900 mb-2">
@@ -303,7 +309,9 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
                 <div>
                   3. Switch between conversations and send messages yourself
                 </div>
-                <div>4. Try to accept more messages while load test is running</div>
+                <div>
+                  4. Try to accept more messages while load test is running
+                </div>
                 <div className="mt-2 text-blue-600">
                   💡 Extended durations (7.5m & 15m) give you time for manual
                   interaction
