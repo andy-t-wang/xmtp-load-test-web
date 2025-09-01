@@ -1,6 +1,6 @@
 #!/bin/bash
 # Enhanced load test script with DM support and state persistence
-# USAGE: ./enhanced_load_test.sh <INBOX_ID> [NETWORK] [INTERVAL] [DURATION] [NUM_GROUPS] [MESSAGES_PER_BATCH] [TEST_ID] [NUM_DMS]
+# USAGE: ./enhanced_load_test.sh <INBOX_ID> [NETWORK] [INTERVAL] [DURATION] [NUM_GROUPS] [MESSAGES_PER_BATCH] [TEST_ID] [NUM_DMS] [GROUP_SIZE]
 
 set -eou pipefail
 
@@ -8,7 +8,7 @@ if ! jq --version &>/dev/null; then echo "must install jq"; fi
 
 if [ $# -lt 1 ]; then
     echo "Error: INBOX_ID is required"
-    echo "Usage: $0 <INBOX_ID> [NETWORK] [INTERVAL] [DURATION] [NUM_GROUPS] [MESSAGES_PER_BATCH] [TEST_ID] [NUM_DMS]"
+    echo "Usage: $0 <INBOX_ID> [NETWORK] [INTERVAL] [DURATION] [NUM_GROUPS] [MESSAGES_PER_BATCH] [TEST_ID] [NUM_DMS] [GROUP_SIZE]"
     exit 1
 fi
 
@@ -20,6 +20,7 @@ NUM_GROUPS=${5-5}
 MESSAGES_PER_GROUP_PER_BATCH=${6-3}
 TEST_ID=${7-"test_$(date +%s)"}
 NUM_DMS=${8-5}  # Number of DM conversations (2-person groups)
+GROUP_SIZE=${9-10}  # Number of members in each group (excluding the target inbox)
 
 CMD="${XDBG_PATH:-./target/release/xdbg} -b $NETWORK"
 
@@ -34,7 +35,7 @@ echo "Inbox ID: $INBOX_ID" | tee -a $LOGS_FILE
 echo "Network: $NETWORK" | tee -a $LOGS_FILE
 echo "Duration: ${DURATION}s" | tee -a $LOGS_FILE
 echo "Interval between batches: ${INTERVAL}s" | tee -a $LOGS_FILE
-echo "Groups: $NUM_GROUPS" | tee -a $LOGS_FILE
+echo "Groups: $NUM_GROUPS (size: $GROUP_SIZE members each)" | tee -a $LOGS_FILE
 echo "DMs: $NUM_DMS" | tee -a $LOGS_FILE
 echo "Messages per conversation per batch: $MESSAGES_PER_GROUP_PER_BATCH" | tee -a $LOGS_FILE
 echo "State file: $STATE_FILE" | tee -a $LOGS_FILE
@@ -150,12 +151,14 @@ echo "🆔 Generating $IDENTITIES_NEEDED identities for $TOTAL_CONVERSATIONS tot
 echo "   ($NUM_GROUPS groups + $NUM_DMS DMs)" | tee -a $LOGS_FILE
 $CMD generate --entity identity --amount $IDENTITIES_NEEDED 2>&1 | tee -a $LOGS_FILE
 
-# Create group conversations (larger groups)
+# Create group conversations with customizable size
 if [ $NUM_GROUPS -gt 0 ]; then
-    echo "👥 Creating $NUM_GROUPS group conversations (will have 10+ members each after adding target)..." | tee -a $LOGS_FILE
+    # Calculate invitees (group size minus 1 for the creator, target will be added separately)
+    INVITEES=$((GROUP_SIZE - 1))
+    echo "👥 Creating $NUM_GROUPS group conversations ($GROUP_SIZE members each after adding target)..." | tee -a $LOGS_FILE
     for i in $(seq 1 $NUM_GROUPS); do
-        echo "  Creating group $i/$NUM_GROUPS (9 initial members, target will be added later)" | tee -a $LOGS_FILE
-        GROUP_OUTPUT=$($CMD generate --entity group --amount 1 --invite 9 2>&1 | tee -a $LOGS_FILE)
+        echo "  Creating group $i/$NUM_GROUPS ($INVITEES initial members, target will be added later)" | tee -a $LOGS_FILE
+        GROUP_OUTPUT=$($CMD generate --entity group --amount 1 --invite $INVITEES 2>&1 | tee -a $LOGS_FILE)
         
         # Extract group ID from output (xdbg should output the created group ID)
         # This is a simplified approach - in practice we'd need to parse xdbg output properly
@@ -353,6 +356,7 @@ cleanup_and_exit() {
   "interval": $INTERVAL,
   "network": "$NETWORK",
   "inboxId": "$INBOX_ID",
+  "groupSize": $GROUP_SIZE,
   "stateFile": "$STATE_FILE"
 }
 EOF

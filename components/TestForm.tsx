@@ -20,6 +20,7 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
     numDms: "5",
     interval: "1",
     messagesPerBatch: "3",
+    groupSize: "10",
   });
 
   // Load form data from URL parameters on component mount
@@ -36,6 +37,7 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
       dms: "numDms",
       interval: "interval",
       messages: "messagesPerBatch",
+      groupSize: "groupSize",
     };
 
     Object.entries(paramMap).forEach(([urlParam, formField]) => {
@@ -106,6 +108,7 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
       numDms: "dms",
       interval: "interval",
       messagesPerBatch: "messages",
+      groupSize: "groupSize",
     };
 
     Object.entries(paramMap).forEach(([formField, urlParam]) => {
@@ -245,7 +248,7 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
             htmlFor="numGroups"
             className="block text-sm font-medium text-gray-700"
           >
-            New Groups (10 members each)
+            New Groups
           </label>
           <input
             type="number"
@@ -282,6 +285,26 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
       </div>
 
       <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label
+            htmlFor="groupSize"
+            className="block text-sm font-medium text-gray-700"
+          >
+            Group Size (members)
+          </label>
+          <input
+            type="number"
+            name="groupSize"
+            id="groupSize"
+            min="2"
+            max="50"
+            value={formData.groupSize}
+            onChange={handleChange}
+            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm border px-3 py-2"
+            disabled={disabled}
+          />
+        </div>
+
         <div>
           <label
             htmlFor="interval"
@@ -322,15 +345,15 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
             disabled={disabled}
           />
         </div>
+      </div>
 
-        <div className="flex items-end">
-          <div className="w-full">
-            <div className="text-sm text-gray-500 mb-1">
-              Total New Conversations:{" "}
-              {parseInt(formData.numGroups) + parseInt(formData.numDms)}
-            </div>
-            <div className="text-xs text-gray-400">New Groups + New DMs</div>
+      <div className="flex justify-center">
+        <div className="text-center">
+          <div className="text-sm text-gray-500 mb-1">
+            Total New Conversations:{" "}
+            {parseInt(formData.numGroups) + parseInt(formData.numDms)}
           </div>
+          <div className="text-xs text-gray-400">New Groups + New DMs</div>
         </div>
       </div>
 

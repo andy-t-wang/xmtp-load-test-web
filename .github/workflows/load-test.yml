@@ -46,6 +46,11 @@ on:
         description: "Unique test identifier"
         required: true
         type: string
+      group_size:
+        description: "Number of members in each group"
+        required: false
+        type: string
+        default: "10"
 
 jobs:
   load-test:
@@ -62,6 +67,7 @@ jobs:
           echo "Duration: ${{ inputs.duration }}s"
           echo "Groups: ${{ inputs.num_groups }}"
           echo "DMs: ${{ inputs.num_dms }}"
+          echo "Group Size: ${{ inputs.group_size }}"
           echo "Inbox ID: ${{ inputs.inbox_id }}"
 
       - name: Checkout this repo
@@ -181,10 +187,11 @@ jobs:
           MESSAGES_PER_BATCH: ${{ inputs.messages_per_batch }}
           TEST_ID: ${{ inputs.test_id }}
           NUM_DMS: ${{ inputs.num_dms }}
+          GROUP_SIZE: ${{ inputs.group_size }}
           XDBG_PATH: ${{ env.LIBXMTP_PATH }}/target/release/xdbg
         run: |
           chmod +x enhanced_load_test.sh
-          ./enhanced_load_test.sh "$INBOX_ID" "$NETWORK" "$INTERVAL" "$DURATION" "$NUM_GROUPS" "$MESSAGES_PER_BATCH" "$TEST_ID" "$NUM_DMS"
+          ./enhanced_load_test.sh "$INBOX_ID" "$NETWORK" "$INTERVAL" "$DURATION" "$NUM_GROUPS" "$MESSAGES_PER_BATCH" "$TEST_ID" "$NUM_DMS" "$GROUP_SIZE"
 
       - name: Upload Results
         uses: actions/upload-artifact@v4

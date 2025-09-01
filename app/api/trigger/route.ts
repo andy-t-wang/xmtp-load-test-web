@@ -11,7 +11,8 @@ export async function POST(request: NextRequest) {
       numDms, 
       interval, 
       messagesPerBatch, 
-      testId 
+      testId,
+      groupSize 
     } = body
 
     // Validate required fields
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
       interval: interval || '1',
       messages_per_batch: messagesPerBatch || '3',
       test_id: testId,
+      group_size: groupSize || '10',
     })
 
     // Trigger GitHub Actions workflow
@@ -75,6 +77,7 @@ export async function POST(request: NextRequest) {
             interval: interval || '1',
             messages_per_batch: messagesPerBatch || '3',
             test_id: testId,
+            group_size: groupSize || '10',
           },
         }),
       }
