@@ -216,34 +216,61 @@ TOTAL_CONVOS=${#ALL_GROUP_IDS[@]}
 
 echo "📊 Total conversations found: $TOTAL_CONVOS" | tee -a $LOGS_FILE
 
-# Save all conversations to state (we can't easily distinguish types after export, so we'll estimate)
+# Save all conversations to state and classify using member count and creation pattern
 GROUPS_SAVED=0
 DMS_SAVED=0
 
-# Track how many we've processed of each type based on creation order
-PROCESSED_GROUPS=0
-PROCESSED_DMS=0
-
+# Get additional conversation details to help classify
 for group_id in "${ALL_GROUP_IDS[@]}"; do
     # Get member count from export data
     MEMBER_COUNT=$(jq -r ".[] | select(.id == \"$group_id\") | .memberSize" $EXPORT)
     
     echo "  Processing conversation ${group_id:0:8}... (memberSize: $MEMBER_COUNT)" | tee -a $LOGS_FILE
     
-    # Classify based on creation order since memberSize might be null for DMs
-    # We created groups first, then DMs
-    if [ $PROCESSED_GROUPS -lt $NUM_GROUPS ]; then
-        # This should be a group
-        save_conversation "$group_id" "group" "$MEMBER_COUNT"
-        GROUPS_SAVED=$((GROUPS_SAVED + 1))
-        PROCESSED_GROUPS=$((PROCESSED_GROUPS + 1))
-        echo "    Classified as GROUP ($PROCESSED_GROUPS/$NUM_GROUPS)" | tee -a $LOGS_FILE
+    # Classify based on member count pattern and creation expectations:
+    # - DMs: memberSize is typically 2 or null (since they're different internally)
+    # - Groups: memberSize typically matches GROUP_SIZE or is null but created as groups
+    # - But we need to be smarter since memberSize can be null for both
+    
+    # Use a probabilistic approach: 
+    # Since we created NUM_GROUPS groups with GROUP_SIZE members each, and NUM_DMS with 2 members
+    # And export order seems to be different from creation order, we'll track what we've seen
+    
+    IS_DM=false
+    
+    # Method 1: If memberSize is exactly 2 and we still need DMs, likely a DM
+    if [ "$MEMBER_COUNT" = "2" ] && [ $DMS_SAVED -lt $NUM_DMS ]; then
+        IS_DM=true
+    # Method 2: If memberSize matches GROUP_SIZE and we still need groups, likely a group  
+    elif [ "$MEMBER_COUNT" = "$GROUP_SIZE" ] && [ $GROUPS_SAVED -lt $NUM_GROUPS ]; then
+        IS_DM=false
+    # Method 3: If memberSize is null, we need to guess based on what's left to classify
+    elif [ "$MEMBER_COUNT" = "null" ]; then
+        # If we have more groups left to find than DMs, assume this is a group
+        GROUPS_NEEDED=$((NUM_GROUPS - GROUPS_SAVED))
+        DMS_NEEDED=$((NUM_DMS - DMS_SAVED))
+        if [ $GROUPS_NEEDED -gt $DMS_NEEDED ]; then
+            IS_DM=false
+        else
+            IS_DM=true
+        fi
+    # Method 4: Default fallback - if we've found all expected groups, rest are DMs
+    elif [ $GROUPS_SAVED -ge $NUM_GROUPS ]; then
+        IS_DM=true
     else
-        # This should be a DM
+        IS_DM=false
+    fi
+    
+    if [ "$IS_DM" = true ]; then
         save_conversation "$group_id" "dm" 2
         DMS_SAVED=$((DMS_SAVED + 1))
-        PROCESSED_DMS=$((PROCESSED_DMS + 1))
-        echo "    Classified as DM ($PROCESSED_DMS/$NUM_DMS)" | tee -a $LOGS_FILE
+        echo "💾 Saved dm conversation: $group_id" | tee -a $LOGS_FILE
+        echo "    Classified as DM ($DMS_SAVED/$NUM_DMS)" | tee -a $LOGS_FILE
+    else
+        save_conversation "$group_id" "group" "$MEMBER_COUNT"
+        GROUPS_SAVED=$((GROUPS_SAVED + 1))
+        echo "💾 Saved group conversation: $group_id" | tee -a $LOGS_FILE
+        echo "    Classified as GROUP ($GROUPS_SAVED/$NUM_GROUPS)" | tee -a $LOGS_FILE
     fi
 done
 
@@ -253,26 +280,35 @@ echo "💾 Total conversations for load test: $GROUPS_SAVED groups, $DMS_SAVED D
 # DMs already have the target inbox included during creation
 echo "➕ Adding inbox $INBOX_ID to group conversations..." | tee -a $LOGS_FILE
 
-# Add to groups only (skip DMs which already have the target)
-# Use the same classification logic as above
-PROCESSED_GROUPS_ADD=0
-PROCESSED_DMS_ADD=0
+# Add to groups only by reading the classification from state file
+GROUP_IDS_FROM_STATE=$(jq -r '.conversations[] | select(.type == "group") | .id' "$STATE_FILE")
+DM_IDS_FROM_STATE=$(jq -r '.conversations[] | select(.type == "dm") | .id' "$STATE_FILE")
 
-for group_id in "${ALL_GROUP_IDS[@]}"; do
-    # Classify based on creation order
-    if [ $PROCESSED_GROUPS_ADD -lt $NUM_GROUPS ]; then
-        # This is a group - add the target inbox
-        PROCESSED_GROUPS_ADD=$((PROCESSED_GROUPS_ADD + 1))
-        echo "  Adding to group $PROCESSED_GROUPS_ADD (ID: ${group_id:0:8}...)" | tee -a $LOGS_FILE
-        $CMD modify --inbox-id $INBOX_ID add-external "$group_id" 2>&1 | tee -a $LOGS_FILE || echo "  ⚠️  Failed to add to group" | tee -a $LOGS_FILE
-    else
-        # This is a DM - skip (already has target inbox)
-        PROCESSED_DMS_ADD=$((PROCESSED_DMS_ADD + 1))
-        echo "  Skipping DM $PROCESSED_DMS_ADD (ID: ${group_id:0:8}...) - already has target inbox" | tee -a $LOGS_FILE
+GROUP_COUNT=0
+for group_id in $GROUP_IDS_FROM_STATE; do
+    GROUP_COUNT=$((GROUP_COUNT + 1))
+    echo "  Adding to group $GROUP_COUNT (ID: ${group_id:0:8}...)" | tee -a $LOGS_FILE
+    
+    # Try to add to group and capture the result properly
+    set +e  # Temporarily disable exit on error
+    ADD_OUTPUT=$($CMD modify --inbox-id $INBOX_ID add-external "$group_id" 2>&1)
+    ADD_RESULT=$?
+    set -e  # Re-enable exit on error
+    
+    echo "$ADD_OUTPUT" | tee -a $LOGS_FILE
+    
+    if [ $ADD_RESULT -ne 0 ]; then
+        echo "  ⚠️  Failed to add to group" | tee -a $LOGS_FILE
     fi
 done
 
-echo "✅ DMs already include target inbox from creation, $PROCESSED_GROUPS_ADD groups updated with target inbox" | tee -a $LOGS_FILE
+DM_COUNT=0
+for dm_id in $DM_IDS_FROM_STATE; do
+    DM_COUNT=$((DM_COUNT + 1))
+    echo "  Skipping DM $DM_COUNT (ID: ${dm_id:0:8}...) - already has target inbox" | tee -a $LOGS_FILE
+done
+
+echo "✅ DMs already include target inbox from creation, $GROUP_COUNT groups updated with target inbox" | tee -a $LOGS_FILE
 
 rm -f $EXPORT
 update_state

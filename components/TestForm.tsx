@@ -50,7 +50,7 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
       groupSize: "50",
     },
     level4: {
-      duration: "300",
+      duration: "450", // 7.5 minutes for manual testing
       numGroups: "15",
       numDms: "15",
       interval: "1",
@@ -58,7 +58,7 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
       groupSize: "150",
     },
     level5: {
-      duration: "600",
+      duration: "900", // 15 minutes for extensive manual testing
       numGroups: "30",
       numDms: "30",
       interval: "1",
@@ -198,7 +198,7 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
       {/* Challenges Section */}
       <div className="bg-gray-50 p-4 rounded-lg border">
         <h3 className="text-sm font-medium text-gray-900 mb-3">
-          🎯 Challenge Levels
+          🎯 Survive the Arena
         </h3>
         <div className="text-xs text-gray-500 mb-3">
           All levels need to be passed for syncing to be considered ready. See
@@ -239,7 +239,7 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
             className="px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="text-orange-600 font-medium text-lg">4</div>
-            <div className="text-xs text-gray-500 mt-1">15+15, 5m</div>
+            <div className="text-xs text-gray-500 mt-1">15+15, 7.5m</div>
           </button>
           <button
             type="button"
@@ -248,8 +248,30 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
             className="px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="text-red-600 font-medium text-lg">5</div>
-            <div className="text-xs text-gray-500 mt-1">30+30, 10m</div>
+            <div className="text-xs text-gray-500 mt-1">30+30, 15m</div>
           </button>
+        </div>
+
+        {/* Manual Testing Instructions for Levels 4 & 5 */}
+        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <h4 className="text-sm font-medium text-blue-900 mb-2">
+            📱 Levels 4 & 5: Manual Testing Instructions
+          </h4>
+          <div className="text-xs text-blue-800 space-y-1">
+            <div>
+              <strong>During the test:</strong>
+            </div>
+            <div>1. Accept some of the incoming message requests</div>
+            <div>2. Kill the app and restart it</div>
+            <div>
+              3. Switch between conversations and send messages yourself
+            </div>
+            <div>4. Try to accept more messages while load test is running</div>
+            <div className="mt-2 text-blue-600">
+              💡 Extended durations (7.5m & 15m) give you time for manual
+              interaction
+            </div>
+          </div>
         </div>
       </div>
 
