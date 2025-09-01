@@ -73,25 +73,26 @@ jobs:
       - name: Checkout this repo
         uses: actions/checkout@v4
 
-      - name: Cache libxmtp clone (disabled for debugging)
+      - name: Cache libxmtp clone
         uses: actions/cache@v4
         with:
           path: libxmtp
-          key: libxmtp-andy-repo-disabled-${{ github.sha }}-${{ github.run_number }}
+          key: libxmtp-andy-repo-v3-${{ hashFiles('.github/workflows/load-test.yml') }}
           restore-keys: |
-            # No restore keys - force fresh clone with latest group naming code
+            libxmtp-andy-repo-v3-
 
-      - name: Clone libxmtp (force fresh for debugging)
+      - name: Clone libxmtp (if not cached)
         run: |
-          # Remove any existing directory to force fresh clone
-          rm -rf libxmtp
-          echo "🔄 Force cloning libxmtp repository with latest group naming code..."
-          git clone --depth 1 https://github.com/andy-t-wang/libxmtp.git libxmtp
+          if [ ! -d "libxmtp" ]; then
+            echo "🔄 Cloning libxmtp repository..."
+            git clone --depth 1 https://github.com/andy-t-wang/libxmtp.git libxmtp
+          else
+            echo "✅ Using cached libxmtp repository"
+            cd libxmtp
+            git pull --depth 1 origin main || echo "Pull failed, using cached version"
+            cd ..
+          fi
           cd libxmtp
-          echo "📝 Verifying we have the latest code..."
-          git log -1 --oneline
-          echo "🔍 Checking for group naming code..."
-          grep -n "println.*SETTING GROUP NAME" xmtp_debug/src/app/generate/groups.rs || echo "⚠️  Group naming code not found in source"
           echo "LIBXMTP_PATH=$(pwd)" >> $GITHUB_ENV
 
       - name: Install dependencies
@@ -117,31 +118,35 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-rust-toolchain-
 
-      - name: Cache libxmtp build (disabled for debugging)
+      - name: Cache libxmtp build
         uses: actions/cache@v4
         with:
           path: libxmtp/target
-          # Temporarily disable build cache to ensure fresh compilation with group naming
-          key: ${{ runner.os }}-libxmtp-andy-build-disabled-${{ github.sha }}
+          key: ${{ runner.os }}-libxmtp-andy-build-v4-${{ hashFiles('libxmtp/Cargo.lock') }}
           restore-keys: |
-            # No restore keys - force complete recompilation
+            ${{ runner.os }}-libxmtp-andy-build-v4-
+            ${{ runner.os }}-libxmtp-andy-build-
 
-      - name: Cache xdbg binary (very persistent)
+      - name: Cache xdbg binary
         uses: actions/cache@v4
         with:
           path: libxmtp/target/release/xdbg
-          # Very stable key - only changes when we want to force a rebuild
-          key: ${{ runner.os }}-xdbg-andy-binary-v3-force-rebuild-${{ github.sha }}
+          # Stable key that includes group naming functionality
+          key: ${{ runner.os }}-xdbg-andy-binary-v4-group-naming
           restore-keys: |
-            # No restore keys - force fresh build every time until naming works
+            ${{ runner.os }}-xdbg-andy-binary-v4-
 
       - name: Check if xdbg already built
         id: check_xdbg
         run: |
           cd libxmtp
-          # Force rebuild until we confirm group naming is working
-          echo "xdbg_exists=false" >> $GITHUB_OUTPUT
-          echo "🔨 Force rebuilding xdbg to ensure group naming features are included"
+          if [ -f "target/release/xdbg" ]; then
+            echo "✅ xdbg binary already exists with group naming support"
+            echo "xdbg_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "🔨 xdbg binary not found, will build"
+            echo "xdbg_exists=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build xdbg (if needed)
         if: steps.check_xdbg.outputs.xdbg_exists != 'true'
@@ -162,14 +167,10 @@ jobs:
             --config 'profile.release.panic="abort"' \
             -j $(nproc)
 
-          # Verify the binary was built successfully and contains our group naming code
+          # Verify the binary was built successfully
           if [ -f "target/release/xdbg" ]; then
             echo "✅ xdbg binary built successfully"
             ls -la target/release/xdbg
-            
-            # Test that our group naming functionality is present
-            echo "🔍 Testing group naming functionality..."
-            RUST_LOG=info ./target/release/xdbg -b dev generate --entity group --amount 1 --invite 1 2>&1 | grep -E "(setting group name|group named successfully)" || echo "⚠️  Group naming logs not found in test output"
           else
             echo "❌ Failed to build xdbg binary"
             exit 1
