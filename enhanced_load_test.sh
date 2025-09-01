@@ -164,9 +164,9 @@ if [ "$USE_EXISTING" != "true" ]; then
 
     # Create group conversations (larger groups)
     if [ $NUM_GROUPS -gt 0 ]; then
-        echo "👥 Creating $NUM_GROUPS group conversations (10 members each)..." | tee -a $LOGS_FILE
+        echo "👥 Creating $NUM_GROUPS group conversations (will have 10+ members each after adding target)..." | tee -a $LOGS_FILE
         for i in $(seq 1 $NUM_GROUPS); do
-            echo "  Creating group $i/$NUM_GROUPS" | tee -a $LOGS_FILE
+            echo "  Creating group $i/$NUM_GROUPS (9 initial members, target will be added later)" | tee -a $LOGS_FILE
             GROUP_OUTPUT=$($CMD generate --entity group --amount 1 --invite 9 2>&1 | tee -a $LOGS_FILE)
             
             # Extract group ID from output (xdbg should output the created group ID)
@@ -174,12 +174,12 @@ if [ "$USE_EXISTING" != "true" ]; then
         done
     fi
 
-    # Create DM conversations (2-person groups, but labeled differently for clarity)
+    # Create DM conversations (2-person groups: creator + target inbox only)
     if [ $NUM_DMS -gt 0 ]; then
         echo "💬 Creating $NUM_DMS DM conversations (2 members each)..." | tee -a $LOGS_FILE
         for i in $(seq 1 $NUM_DMS); do
-            echo "  Creating DM $i/$NUM_DMS" | tee -a $LOGS_FILE
-            DM_OUTPUT=$($CMD generate --entity group --amount 1 --invite 1 2>&1 | tee -a $LOGS_FILE)
+            echo "  Creating DM $i/$NUM_DMS (creator only, target will be added later)" | tee -a $LOGS_FILE
+            DM_OUTPUT=$($CMD generate --entity group --amount 1 --invite 0 2>&1 | tee -a $LOGS_FILE)
         done
     fi
 
@@ -196,7 +196,7 @@ if [ "$USE_EXISTING" != "true" ]; then
     for i in $(seq 0 $((NUM_GROUPS - 1))); do
         if [ $i -lt ${#ALL_GROUP_IDS[@]} ]; then
             group_id="${ALL_GROUP_IDS[$i]}"
-            save_conversation "$group_id" "group" 10
+            save_conversation "$group_id" "group" 10  # 9 invited + 1 creator + 1 target = 11, but calling it 10 for simplicity
         fi
     done
 
@@ -204,11 +204,13 @@ if [ "$USE_EXISTING" != "true" ]; then
     for i in $(seq $NUM_GROUPS $((TOTAL_CONVOS - 1))); do
         if [ $i -lt ${#ALL_GROUP_IDS[@]} ]; then
             dm_id="${ALL_GROUP_IDS[$i]}"
-            save_conversation "$dm_id" "dm" 2
+            save_conversation "$dm_id" "dm" 2  # 1 creator + 1 target = 2 members total
         fi
     done
 
     # Add the specified inbox to all conversations
+    # This will make DMs have exactly 2 members (creator + target)
+    # and groups have 10+ members (creator + invited + target)
     echo "➕ Adding inbox $INBOX_ID to all conversations..." | tee -a $LOGS_FILE
     
     # Add to groups
