@@ -174,12 +174,12 @@ if [ "$USE_EXISTING" != "true" ]; then
         done
     fi
 
-    # Create DM conversations (2-person groups: creator + target inbox only)
+    # Create DM conversations (true 2-person DM conversations)
     if [ $NUM_DMS -gt 0 ]; then
-        echo "💬 Creating $NUM_DMS DM conversations (2 members each)..." | tee -a $LOGS_FILE
+        echo "💬 Creating $NUM_DMS true DM conversations (2 members each)..." | tee -a $LOGS_FILE
         for i in $(seq 1 $NUM_DMS); do
-            echo "  Creating DM $i/$NUM_DMS (creator only, target will be added later)" | tee -a $LOGS_FILE
-            DM_OUTPUT=$($CMD generate --entity group --amount 1 --invite 0 2>&1 | tee -a $LOGS_FILE)
+            echo "  Creating DM $i/$NUM_DMS with target inbox $INBOX_ID" | tee -a $LOGS_FILE
+            DM_OUTPUT=$($CMD generate --entity dm --amount 1 --target-inbox $INBOX_ID 2>&1 | tee -a $LOGS_FILE)
         done
     fi
 
@@ -208,12 +208,11 @@ if [ "$USE_EXISTING" != "true" ]; then
         fi
     done
 
-    # Add the specified inbox to all conversations
-    # This will make DMs have exactly 2 members (creator + target)
-    # and groups have 10+ members (creator + invited + target)
-    echo "➕ Adding inbox $INBOX_ID to all conversations..." | tee -a $LOGS_FILE
+    # Add the specified inbox to group conversations only
+    # DMs already have the target inbox included during creation
+    echo "➕ Adding inbox $INBOX_ID to group conversations..." | tee -a $LOGS_FILE
     
-    # Add to groups
+    # Add to groups only
     for i in $(seq 0 $((NUM_GROUPS - 1))); do
         if [ $i -lt ${#ALL_GROUP_IDS[@]} ]; then
             group_id="${ALL_GROUP_IDS[$i]}"
@@ -221,16 +220,8 @@ if [ "$USE_EXISTING" != "true" ]; then
             $CMD modify --inbox-id $INBOX_ID add-external "$group_id" 2>&1 | tee -a $LOGS_FILE || echo "  ⚠️  Failed to add to group" | tee -a $LOGS_FILE
         fi
     done
-
-    # Add to DMs
-    for i in $(seq $NUM_GROUPS $((TOTAL_CONVOS - 1))); do
-        if [ $i -lt ${#ALL_GROUP_IDS[@]} ]; then
-            dm_id="${ALL_GROUP_IDS[$i]}"
-            dm_num=$((i - NUM_GROUPS + 1))
-            echo "  Adding to DM $dm_num/$NUM_DMS (ID: ${dm_id:0:8}...)" | tee -a $LOGS_FILE
-            $CMD modify --inbox-id $INBOX_ID add-external "$dm_id" 2>&1 | tee -a $LOGS_FILE || echo "  ⚠️  Failed to add to DM" | tee -a $LOGS_FILE
-        fi
-    done
+    
+    echo "✅ DMs already include target inbox from creation, groups updated with target inbox" | tee -a $LOGS_FILE
 
     rm -f $EXPORT
     update_state

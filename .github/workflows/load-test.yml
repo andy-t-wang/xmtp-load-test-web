@@ -84,8 +84,8 @@ jobs:
       - name: Clone libxmtp (if not cached)
         run: |
           if [ ! -d "libxmtp" ]; then
-            echo "🔄 Cloning libxmtp repository..."
-            git clone --depth 1 https://github.com/xmtp/libxmtp.git
+            echo "🔄 Cloning libxmtp repository (with DM support)..."
+            git clone --depth 1 https://github.com/andy-t-wang/libxmtp.git libxmtp
           else
             echo "✅ Using cached libxmtp repository"
             cd libxmtp
@@ -154,20 +154,20 @@ jobs:
         run: |
           cd libxmtp
           echo "🔨 Building xdbg with optimized settings..."
-          
+
           # Use all available CPU cores for faster compilation
           export CARGO_BUILD_JOBS=$(nproc)
-          
+
           # Enable incremental compilation for faster rebuilds
           export CARGO_INCREMENTAL=1
-          
+
           # Build with optimized flags for faster compilation
           cargo build --release --bin xdbg \
             --config 'profile.release.lto="thin"' \
             --config 'profile.release.codegen-units=1' \
             --config 'profile.release.panic="abort"' \
             -j $(nproc)
-          
+
           # Verify the binary was built successfully
           if [ -f "target/release/xdbg" ]; then
             echo "✅ xdbg binary built successfully"
