@@ -23,6 +23,50 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
     groupSize: "10",
   });
 
+  // Challenge levels
+  const challenges = {
+    level1: {
+      duration: "30",
+      numGroups: "1",
+      numDms: "1", 
+      interval: "3",
+      messagesPerBatch: "1",
+      groupSize: "3",
+    },
+    level2: {
+      duration: "60",
+      numGroups: "2",
+      numDms: "2", 
+      interval: "2",
+      messagesPerBatch: "2",
+      groupSize: "5",
+    },
+    level3: {
+      duration: "120",
+      numGroups: "5",
+      numDms: "3",
+      interval: "1",
+      messagesPerBatch: "3",
+      groupSize: "8",
+    },
+    level4: {
+      duration: "180", 
+      numGroups: "8",
+      numDms: "6",
+      interval: "1",
+      messagesPerBatch: "4",
+      groupSize: "15",
+    },
+    level5: {
+      duration: "300", 
+      numGroups: "12",
+      numDms: "10",
+      interval: "0.5",
+      messagesPerBatch: "5",
+      groupSize: "25",
+    }
+  };
+
   // Load form data from URL parameters on component mount
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -137,8 +181,75 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
     }
   };
 
+  const applyChallenge = (challengeLevel: 'level1' | 'level2' | 'level3' | 'level4' | 'level5') => {
+    const challengeConfig = challenges[challengeLevel];
+    const newFormData = {
+      ...formData,
+      ...challengeConfig,
+    };
+    setFormData(newFormData);
+    updateUrlParams(newFormData);
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Challenges Section */}
+      <div className="bg-gray-50 p-4 rounded-lg border">
+        <h3 className="text-sm font-medium text-gray-900 mb-3">
+          🎯 Challenge Levels
+        </h3>
+        <div className="text-xs text-gray-500 mb-3">
+          Progressive load testing scenarios - pick your difficulty
+        </div>
+        <div className="grid grid-cols-5 gap-2">
+          <button
+            type="button"
+            onClick={() => applyChallenge('level1')}
+            disabled={disabled}
+            className="px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="text-green-600 font-medium text-lg">1</div>
+            <div className="text-xs text-gray-500 mt-1">1+1, 30s</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => applyChallenge('level2')}
+            disabled={disabled}
+            className="px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="text-blue-600 font-medium text-lg">2</div>
+            <div className="text-xs text-gray-500 mt-1">2+2, 1m</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => applyChallenge('level3')}
+            disabled={disabled}
+            className="px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="text-yellow-600 font-medium text-lg">3</div>
+            <div className="text-xs text-gray-500 mt-1">5+3, 2m</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => applyChallenge('level4')}
+            disabled={disabled}
+            className="px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="text-orange-600 font-medium text-lg">4</div>
+            <div className="text-xs text-gray-500 mt-1">8+6, 3m</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => applyChallenge('level5')}
+            disabled={disabled}
+            className="px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="text-red-600 font-medium text-lg">5</div>
+            <div className="text-xs text-gray-500 mt-1">12+10, 5m</div>
+          </button>
+        </div>
+      </div>
+
       <div>
         <div className="flex items-center mb-1">
           <label

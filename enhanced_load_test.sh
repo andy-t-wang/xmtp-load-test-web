@@ -158,10 +158,10 @@ if [ $NUM_GROUPS -gt 0 ]; then
     echo "👥 Creating $NUM_GROUPS group conversations ($GROUP_SIZE members each after adding target)..." | tee -a $LOGS_FILE
     for i in $(seq 1 $NUM_GROUPS); do
         echo "  Creating group $i/$NUM_GROUPS ($INVITEES initial members, target will be added later)" | tee -a $LOGS_FILE
-        GROUP_OUTPUT=$($CMD generate --entity group --amount 1 --invite $INVITEES 2>&1 | tee -a $LOGS_FILE)
+        echo "  Debug: Running command: $CMD generate --entity group --amount 1 --invite $INVITEES" | tee -a $LOGS_FILE
+        $CMD generate --entity group --amount 1 --invite $INVITEES 2>&1 | tee -a $LOGS_FILE
         
-        # Extract group ID from output (xdbg should output the created group ID)
-        # This is a simplified approach - in practice we'd need to parse xdbg output properly
+        # Group creation completed
     done
 fi
 

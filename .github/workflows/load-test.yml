@@ -77,7 +77,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: libxmtp
-          key: libxmtp-andy-repo-v5-group-naming-dm-sync-${{ hashFiles('.github/workflows/load-test.yml') }}
+          key: libxmtp-andy-repo-v6-group-naming-dm-sync-fix-${{ hashFiles('.github/workflows/load-test.yml') }}
           restore-keys: |
             libxmtp-andy-repo-v3-
 
@@ -122,7 +122,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: libxmtp/target
-          key: ${{ runner.os }}-libxmtp-andy-build-v6-group-naming-dm-sync-${{ hashFiles('libxmtp/Cargo.lock') }}
+          key: ${{ runner.os }}-libxmtp-andy-build-v7-group-naming-dm-sync-fix-${{ hashFiles('libxmtp/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-libxmtp-andy-build-v4-
             ${{ runner.os }}-libxmtp-andy-build-
@@ -132,7 +132,7 @@ jobs:
         with:
           path: libxmtp/target/release/xdbg
           # Stable key that includes group naming and DM sync functionality
-          key: ${{ runner.os }}-xdbg-andy-binary-v6-group-naming-dm-sync
+          key: ${{ runner.os }}-xdbg-andy-binary-v7-group-naming-dm-sync-fix
           restore-keys: |
             ${{ runner.os }}-xdbg-andy-binary-v4-
 
