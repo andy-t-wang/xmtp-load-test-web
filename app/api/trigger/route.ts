@@ -11,7 +11,8 @@ export async function POST(request: NextRequest) {
       numDms, 
       interval, 
       messagesPerBatch, 
-      testId 
+      testId,
+      useExisting 
     } = body
 
     // Validate required fields
@@ -47,11 +48,12 @@ export async function POST(request: NextRequest) {
       inbox_id: inboxId,
       network: network || 'dev',
       duration: duration || '30',
-      num_groups: numGroups || '10',
-      num_dms: numDms || '0',
+      num_groups: numGroups || '5',
+      num_dms: numDms || '5',
       interval: interval || '1',
       messages_per_batch: messagesPerBatch || '3',
       test_id: testId,
+      use_existing: useExisting || false,
     })
 
     // Trigger GitHub Actions workflow
@@ -70,11 +72,12 @@ export async function POST(request: NextRequest) {
             inbox_id: inboxId,
             network: network || 'dev',
             duration: duration || '30',
-            num_groups: numGroups || '10',
-            num_dms: numDms || '0',
+            num_groups: numGroups || '5',
+            num_dms: numDms || '5',
             interval: interval || '1',
             messages_per_batch: messagesPerBatch || '3',
             test_id: testId,
+            use_existing: String(useExisting || false),
           },
         }),
       }

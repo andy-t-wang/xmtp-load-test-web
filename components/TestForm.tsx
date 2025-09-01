@@ -16,10 +16,11 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
     inboxId: '',
     network: 'dev',
     duration: '30',
-    numGroups: '10',
-    numDms: '0',
+    numGroups: '5',
+    numDms: '5',
     interval: '1',
-    messagesPerBatch: '3'
+    messagesPerBatch: '3',
+    useExisting: false
   })
 
   // Load form data from URL parameters on component mount
@@ -35,13 +36,18 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
       groups: 'numGroups',
       dms: 'numDms',
       interval: 'interval',
-      messages: 'messagesPerBatch'
+      messages: 'messagesPerBatch',
+      existing: 'useExisting'
     }
     
     Object.entries(paramMap).forEach(([urlParam, formField]) => {
       const value = urlParams.get(urlParam)
       if (value) {
-        updatedFormData[formField as keyof typeof formData] = value
+        if (formField === 'useExisting') {
+          updatedFormData[formField as keyof typeof formData] = value === 'true'
+        } else {
+          updatedFormData[formField as keyof typeof formData] = value
+        }
       }
     })
     
@@ -76,9 +82,10 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const value = e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value
     const newFormData = {
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: value
     }
     setFormData(newFormData)
     
@@ -98,13 +105,14 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
       numGroups: 'groups',
       numDms: 'dms',
       interval: 'interval',
-      messagesPerBatch: 'messages'
+      messagesPerBatch: 'messages',
+      useExisting: 'existing'
     }
     
     Object.entries(paramMap).forEach(([formField, urlParam]) => {
       const value = data[formField as keyof typeof data]
-      if (value) {
-        params.set(urlParam, value)
+      if (value !== undefined && value !== null && value !== '') {
+        params.set(urlParam, String(value))
       } else {
         params.delete(urlParam)
       }
@@ -232,7 +240,7 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
 
         <div>
           <label htmlFor="numDms" className="block text-sm font-medium text-gray-700">
-            DMs (2 members each)
+            DMs (2-person conversations)
           </label>
           <input
             type="number"
@@ -293,6 +301,24 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
               Groups + DMs
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="flex items-center">
+        <input
+          type="checkbox"
+          name="useExisting"
+          id="useExisting"
+          checked={formData.useExisting}
+          onChange={handleChange}
+          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          disabled={disabled}
+        />
+        <label htmlFor="useExisting" className="ml-2 text-sm text-gray-700">
+          Use existing conversations (if available)
+        </label>
+        <div className="ml-2 text-xs text-gray-500">
+          💡 Enable this to continue messaging in previous test conversations instead of creating new ones
         </div>
       </div>
 

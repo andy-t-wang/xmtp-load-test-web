@@ -85,7 +85,7 @@ jobs:
         run: |
           if [ ! -d "libxmtp" ]; then
             echo "🔄 Cloning libxmtp repository (with DM support)..."
-            git clone --depth 1 https://github.com/andy-t-wang/libxmtp.git libxmtp
+            git clone --depth 1 https://github.com/andy-t-wang/libxmtp-andy.git libxmtp
           else
             echo "✅ Using cached libxmtp repository"
             cd libxmtp

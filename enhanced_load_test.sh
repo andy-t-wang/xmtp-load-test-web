@@ -22,7 +22,7 @@ TEST_ID=${7-"test_$(date +%s)"}
 NUM_DMS=${8-5}  # Number of DM conversations (2-person groups)
 USE_EXISTING=${9-false}  # Whether to reuse existing conversations
 
-CMD="${XDBG_PATH:-./target/release/xdbg} -b $NETWORK"
+CMD="${XDBG_PATH:-./target/release/xdbg} -b $NETWORK -v"
 
 # State files
 STATE_FILE="test_state_${TEST_ID}.json"
@@ -156,6 +156,20 @@ if [ "$USE_EXISTING" != "true" ]; then
     ${XDBG_PATH:-./target/release/xdbg} --clear 2>&1 | tee -a $LOGS_FILE
     $CMD --clear 2>&1 | tee -a $LOGS_FILE
 
+    # Test if xdbg supports DM creation
+    if [ $NUM_DMS -gt 0 ]; then
+        echo "🔍 Testing xdbg DM support..." | tee -a $LOGS_FILE
+        DM_HELP_OUTPUT=$($CMD generate --help 2>&1 | grep -i "dm\|entity" || true)
+        echo "  Available entities: $DM_HELP_OUTPUT" | tee -a $LOGS_FILE
+        
+        # Test if dm is a valid entity
+        if ! $CMD generate --help 2>&1 | grep -q "dm"; then
+            echo "  ⚠️  xdbg may not support dm entity - this version may not have DM support" | tee -a $LOGS_FILE
+        else
+            echo "  ✅ xdbg supports dm entity" | tee -a $LOGS_FILE
+        fi
+    fi
+
     # Generate identities for group members (more than needed to ensure variety)
     TOTAL_CONVERSATIONS=$((NUM_GROUPS + NUM_DMS))
     IDENTITIES_NEEDED=$((TOTAL_CONVERSATIONS * 10 + 10))  # Extra identities for variety
@@ -179,7 +193,38 @@ if [ "$USE_EXISTING" != "true" ]; then
         echo "💬 Creating $NUM_DMS true DM conversations (2 members each)..." | tee -a $LOGS_FILE
         for i in $(seq 1 $NUM_DMS); do
             echo "  Creating DM $i/$NUM_DMS with target inbox $INBOX_ID" | tee -a $LOGS_FILE
-            DM_OUTPUT=$($CMD generate --entity dm --amount 1 --target-inbox $INBOX_ID 2>&1 | tee -a $LOGS_FILE)
+            echo "  Debug: Running command: $CMD generate --entity dm --amount 1 --target-inbox $INBOX_ID" | tee -a $LOGS_FILE
+            
+            # Try to create DM and capture both stdout and stderr
+            set +e  # Temporarily disable exit on error
+            DM_OUTPUT=$($CMD generate --entity dm --amount 1 --target-inbox $INBOX_ID 2>&1)
+            DM_EXIT_CODE=$?
+            set -e  # Re-enable exit on error
+            
+            echo "$DM_OUTPUT" | tee -a $LOGS_FILE
+            
+            if [ $DM_EXIT_CODE -ne 0 ]; then
+                echo "  ❌ DM creation failed with exit code $DM_EXIT_CODE" | tee -a $LOGS_FILE
+                echo "  Full error output:" | tee -a $LOGS_FILE
+                echo "$DM_OUTPUT" | tee -a $LOGS_FILE
+                
+                # Fallback to creating 2-person group
+                echo "  🔄 Falling back to creating 2-person group..." | tee -a $LOGS_FILE
+                set +e
+                FALLBACK_OUTPUT=$($CMD generate --entity group --amount 1 --invite 0 2>&1)
+                FALLBACK_EXIT_CODE=$?
+                set -e
+                
+                echo "$FALLBACK_OUTPUT" | tee -a $LOGS_FILE
+                
+                if [ $FALLBACK_EXIT_CODE -eq 0 ]; then
+                    echo "  ✅ Fallback: Created 2-person group as DM substitute" | tee -a $LOGS_FILE
+                else
+                    echo "  ❌ Fallback also failed with exit code $FALLBACK_EXIT_CODE" | tee -a $LOGS_FILE
+                fi
+            else
+                echo "  ✅ DM $i created successfully" | tee -a $LOGS_FILE
+            fi
         done
     fi
 
