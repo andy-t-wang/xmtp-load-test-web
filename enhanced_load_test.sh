@@ -46,6 +46,10 @@ echo "----------------------------------------" | tee -a $LOGS_FILE
 START_TIME=$(date +%s)
 START_TIME_ISO=$(date -Iseconds)
 
+# Initialize global counters
+TOTAL_MESSAGES=0
+CLEANUP_DONE=false
+
 # Function to initialize state file
 initialize_state() {
     cat > $STATE_FILE << EOF
@@ -241,6 +245,17 @@ if [ $TOTAL_CONVOS -eq 0 ]; then
     exit 1
 fi
 
+# Count conversation types from state for display
+ACTUAL_GROUPS=0
+ACTUAL_DMS=0
+if [ -f "$STATE_FILE" ]; then
+    ACTUAL_GROUPS=$(jq '[.conversations[] | select(.type == "group")] | length' "$STATE_FILE" 2>/dev/null || echo "0")
+    ACTUAL_DMS=$(jq '[.conversations[] | select(.type == "dm")] | length' "$STATE_FILE" 2>/dev/null || echo "0")
+else
+    ACTUAL_GROUPS=$NUM_GROUPS
+    ACTUAL_DMS=$NUM_DMS
+fi
+
 # Function to send messages to all conversations
 send_messages_to_all_conversations() {
     # Send messages to all conversations (no need to specify group ID)
@@ -262,6 +277,12 @@ timeout_handler() {
 
 # Function to handle cleanup and exit
 cleanup_and_exit() {
+    # Prevent multiple executions
+    if [ "${CLEANUP_DONE:-false}" = "true" ]; then
+        exit 0
+    fi
+    CLEANUP_DONE=true
+    
     local END_TIME=$(date +%s)
     local END_TIME_ISO=$(date -Iseconds)
     local ACTUAL_DURATION=$((END_TIME - START_TIME))
@@ -283,16 +304,7 @@ cleanup_and_exit() {
         MSGS_PER_SEC=$(echo "scale=2; $TOTAL_MESSAGES / $ACTUAL_DURATION" | bc -l 2>/dev/null || echo "0")
     fi
     
-    # Count conversation types from state
-    local ACTUAL_GROUPS=0
-    local ACTUAL_DMS=0
-    if [ -f "$STATE_FILE" ]; then
-        ACTUAL_GROUPS=$(jq '[.conversations[] | select(.type == "group")] | length' "$STATE_FILE" 2>/dev/null || echo "0")
-        ACTUAL_DMS=$(jq '[.conversations[] | select(.type == "dm")] | length' "$STATE_FILE" 2>/dev/null || echo "0")
-    else
-        ACTUAL_GROUPS=$NUM_GROUPS
-        ACTUAL_DMS=$NUM_DMS
-    fi
+    # Use the already defined ACTUAL_GROUPS and ACTUAL_DMS variables
     
     cat > $RESULTS_FILE << EOF
 {
@@ -345,6 +357,7 @@ echo "🔥 Starting load test for up to $DURATION seconds..." | tee -a $LOGS_FIL
 echo "📬 Sending $MESSAGES_PER_GROUP_PER_BATCH messages to each of $TOTAL_CONVOS conversations every ${INTERVAL}s" | tee -a $LOGS_FILE
 echo "   ($ACTUAL_GROUPS groups + $ACTUAL_DMS DMs)" | tee -a $LOGS_FILE
 
+# Initialize counters
 LOOP_COUNT=0
 TOTAL_MESSAGES=0
 
