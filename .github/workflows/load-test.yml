@@ -133,27 +133,17 @@ jobs:
         with:
           path: libxmtp/target/release/xdbg
           # Very stable key - only changes when we want to force a rebuild
-          key: ${{ runner.os }}-xdbg-andy-binary-v2-group-naming
+          key: ${{ runner.os }}-xdbg-andy-binary-v3-force-rebuild-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-xdbg-andy-binary-v2-
+            # No restore keys - force fresh build every time until naming works
 
       - name: Check if xdbg already built
         id: check_xdbg
         run: |
           cd libxmtp
-          if [ -f "target/release/xdbg" ]; then
-            echo "✅ xdbg binary already exists, checking DM support and group naming features..."
-            if ./target/release/xdbg generate --help 2>&1 | grep -q "dm"; then
-              echo "xdbg_exists=true" >> $GITHUB_OUTPUT
-              echo "✅ xdbg binary has DM support and group naming features, skipping build"
-            else
-              echo "xdbg_exists=false" >> $GITHUB_OUTPUT
-              echo "🔄 xdbg binary exists but lacks DM support, will rebuild"
-            fi
-          else
-            echo "xdbg_exists=false" >> $GITHUB_OUTPUT
-            echo "🔨 xdbg binary not found, will build"
-          fi
+          # Force rebuild until we confirm group naming is working
+          echo "xdbg_exists=false" >> $GITHUB_OUTPUT
+          echo "🔨 Force rebuilding xdbg to ensure group naming features are included"
 
       - name: Build xdbg (if needed)
         if: steps.check_xdbg.outputs.xdbg_exists != 'true'
