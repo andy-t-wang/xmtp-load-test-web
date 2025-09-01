@@ -71,7 +71,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: libxmtp
-          key: libxmtp-andy-repo-v3-${{ hashFiles('.github/workflows/load-test.yml') }}
+          key: libxmtp-andy-repo-v4-dm-sync-${{ hashFiles('.github/workflows/load-test.yml') }}
           restore-keys: |
             libxmtp-andy-repo-v3-
 
@@ -116,7 +116,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: libxmtp/target
-          key: ${{ runner.os }}-libxmtp-andy-build-v4-${{ hashFiles('libxmtp/Cargo.lock') }}
+          key: ${{ runner.os }}-libxmtp-andy-build-v5-dm-sync-${{ hashFiles('libxmtp/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-libxmtp-andy-build-v4-
             ${{ runner.os }}-libxmtp-andy-build-
