@@ -73,26 +73,25 @@ jobs:
       - name: Checkout this repo
         uses: actions/checkout@v4
 
-      - name: Cache libxmtp clone
+      - name: Cache libxmtp clone (disabled for debugging)
         uses: actions/cache@v4
         with:
           path: libxmtp
-          key: libxmtp-andy-repo-v2-${{ hashFiles('.github/workflows/load-test.yml') }}
+          key: libxmtp-andy-repo-disabled-${{ github.sha }}-${{ github.run_number }}
           restore-keys: |
-            libxmtp-andy-repo-v2-
+            # No restore keys - force fresh clone with latest group naming code
 
-      - name: Clone libxmtp (if not cached)
+      - name: Clone libxmtp (force fresh for debugging)
         run: |
-          if [ ! -d "libxmtp" ]; then
-            echo "🔄 Cloning libxmtp repository (with DM support)..."
-            git clone --depth 1 https://github.com/andy-t-wang/libxmtp.git libxmtp
-          else
-            echo "✅ Using cached libxmtp repository"
-            cd libxmtp
-            git pull --depth 1 origin main || echo "Pull failed, using cached version"
-            cd ..
-          fi
+          # Remove any existing directory to force fresh clone
+          rm -rf libxmtp
+          echo "🔄 Force cloning libxmtp repository with latest group naming code..."
+          git clone --depth 1 https://github.com/andy-t-wang/libxmtp.git libxmtp
           cd libxmtp
+          echo "📝 Verifying we have the latest code..."
+          git log -1 --oneline
+          echo "🔍 Checking for group naming code..."
+          grep -n "println.*SETTING GROUP NAME" xmtp_debug/src/app/generate/groups.rs || echo "⚠️  Group naming code not found in source"
           echo "LIBXMTP_PATH=$(pwd)" >> $GITHUB_ENV
 
       - name: Install dependencies
