@@ -77,9 +77,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: libxmtp
-          key: libxmtp-repo-${{ hashFiles('.github/workflows/load-test.yml') }}
+          key: libxmtp-andy-repo-v2-${{ hashFiles('.github/workflows/load-test.yml') }}
           restore-keys: |
-            libxmtp-repo-
+            libxmtp-andy-repo-v2-
 
       - name: Clone libxmtp (if not cached)
         run: |
@@ -123,27 +123,33 @@ jobs:
         with:
           path: libxmtp/target
           # Use a stable key that doesn't change often - only invalidate on major changes
-          key: ${{ runner.os }}-libxmtp-build-v2-${{ hashFiles('libxmtp/Cargo.lock') }}
+          key: ${{ runner.os }}-libxmtp-andy-build-v3-${{ hashFiles('libxmtp/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-libxmtp-build-v2-
-            ${{ runner.os }}-libxmtp-build-
+            ${{ runner.os }}-libxmtp-andy-build-v3-
+            ${{ runner.os }}-libxmtp-andy-build-
 
       - name: Cache xdbg binary (very persistent)
         uses: actions/cache@v4
         with:
           path: libxmtp/target/release/xdbg
           # Very stable key - only changes when we want to force a rebuild
-          key: ${{ runner.os }}-xdbg-binary-v1
+          key: ${{ runner.os }}-xdbg-andy-binary-v1
           restore-keys: |
-            ${{ runner.os }}-xdbg-binary-
+            ${{ runner.os }}-xdbg-andy-binary-
 
       - name: Check if xdbg already built
         id: check_xdbg
         run: |
           cd libxmtp
           if [ -f "target/release/xdbg" ]; then
-            echo "xdbg_exists=true" >> $GITHUB_OUTPUT
-            echo "✅ xdbg binary already exists (cached), skipping build"
+            echo "✅ xdbg binary already exists, checking DM support..."
+            if ./target/release/xdbg generate --help 2>&1 | grep -q "dm"; then
+              echo "xdbg_exists=true" >> $GITHUB_OUTPUT
+              echo "✅ xdbg binary has DM support, skipping build"
+            else
+              echo "xdbg_exists=false" >> $GITHUB_OUTPUT
+              echo "🔄 xdbg binary exists but lacks DM support, will rebuild"
+            fi
           else
             echo "xdbg_exists=false" >> $GITHUB_OUTPUT
             echo "🔨 xdbg binary not found, will build"
