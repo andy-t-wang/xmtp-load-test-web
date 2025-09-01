@@ -159,7 +159,44 @@ if [ $NUM_GROUPS -gt 0 ]; then
     for i in $(seq 1 $NUM_GROUPS); do
         echo "  Creating group $i/$NUM_GROUPS ($INVITEES initial members, target will be added later)" | tee -a $LOGS_FILE
         echo "  Debug: Running command: $CMD generate --entity group --amount 1 --invite $INVITEES" | tee -a $LOGS_FILE
-        $CMD generate --entity group --amount 1 --invite $INVITEES 2>&1 | tee -a $LOGS_FILE
+        
+        # Capture group creation output to extract group ID for renaming
+        GROUP_OUTPUT=$($CMD generate --entity group --amount 1 --invite $INVITEES 2>&1 | tee -a $LOGS_FILE)
+        
+        # Try to extract group ID from the naming output and rename it
+        # Look for the group ID in the naming success message
+        GROUP_ID=$(echo "$GROUP_OUTPUT" | grep -o "[a-f0-9]\{32\}" | head -1 || echo "")
+        if [ ! -z "$GROUP_ID" ]; then
+            GROUP_NAME="group-$i-$(date +%s)"  # Use group number and timestamp
+            echo "🏷️  Attempting to rename group $GROUP_ID to: $GROUP_NAME" | tee -a $LOGS_FILE
+            
+            # Try different naming approaches
+            set +e
+            # Try method 1: modify with set-name
+            NAME_OUTPUT=$($CMD modify --group-id "$GROUP_ID" set-name "$GROUP_NAME" 2>&1 || echo "METHOD1_FAILED")
+            NAME_RESULT=$?
+            
+            if [ $NAME_RESULT -ne 0 ]; then
+                # Try method 2: modify without --group-id
+                NAME_OUTPUT=$($CMD modify "$GROUP_ID" set-name "$GROUP_NAME" 2>&1 || echo "METHOD2_FAILED")
+                NAME_RESULT=$?
+            fi
+            
+            if [ $NAME_RESULT -ne 0 ]; then
+                # Try method 3: using update-metadata or similar
+                NAME_OUTPUT=$($CMD modify "$GROUP_ID" update-metadata --name "$GROUP_NAME" 2>&1 || echo "METHOD3_FAILED")
+                NAME_RESULT=$?
+            fi
+            set -e
+            
+            if [ $NAME_RESULT -eq 0 ]; then
+                echo "✅ Successfully renamed group to: $GROUP_NAME" | tee -a $LOGS_FILE
+            else
+                echo "ℹ️  Group renaming not supported: $NAME_OUTPUT" | tee -a $LOGS_FILE
+            fi
+        else
+            echo "ℹ️  Could not extract group ID for renaming" | tee -a $LOGS_FILE
+        fi
         
         # Group creation completed
     done
