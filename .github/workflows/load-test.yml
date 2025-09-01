@@ -125,8 +125,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: libxmtp/target/release/xdbg
-          # Stable key that includes group naming functionality
-          key: ${{ runner.os }}-xdbg-andy-binary-v4-group-naming
+          # Stable key that includes group naming and DM sync functionality
+          key: ${{ runner.os }}-xdbg-andy-binary-v5-dm-sync
           restore-keys: |
             ${{ runner.os }}-xdbg-andy-binary-v4-
 
@@ -135,7 +135,7 @@ jobs:
         run: |
           cd libxmtp
           if [ -f "target/release/xdbg" ]; then
-            echo "✅ xdbg binary already exists with group naming support"
+            echo "✅ xdbg binary already exists with DM sync support"
             echo "xdbg_exists=true" >> $GITHUB_OUTPUT
           else
             echo "🔨 xdbg binary not found, will build"
