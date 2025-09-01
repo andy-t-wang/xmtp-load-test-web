@@ -217,17 +217,30 @@ echo "📊 Total conversations found: $TOTAL_CONVOS" | tee -a $LOGS_FILE
 GROUPS_SAVED=0
 DMS_SAVED=0
 
+# Track how many we've processed of each type based on creation order
+PROCESSED_GROUPS=0
+PROCESSED_DMS=0
+
 for group_id in "${ALL_GROUP_IDS[@]}"; do
     # Get member count from export data
     MEMBER_COUNT=$(jq -r ".[] | select(.id == \"$group_id\") | .memberSize" $EXPORT)
     
-    # Classify as DM if 2 members, otherwise group
-    if [ "$MEMBER_COUNT" = "2" ]; then
-        save_conversation "$group_id" "dm" 2
-        DMS_SAVED=$((DMS_SAVED + 1))
-    else
+    echo "  Processing conversation ${group_id:0:8}... (memberSize: $MEMBER_COUNT)" | tee -a $LOGS_FILE
+    
+    # Classify based on creation order since memberSize might be null for DMs
+    # We created groups first, then DMs
+    if [ $PROCESSED_GROUPS -lt $NUM_GROUPS ]; then
+        # This should be a group
         save_conversation "$group_id" "group" "$MEMBER_COUNT"
         GROUPS_SAVED=$((GROUPS_SAVED + 1))
+        PROCESSED_GROUPS=$((PROCESSED_GROUPS + 1))
+        echo "    Classified as GROUP ($PROCESSED_GROUPS/$NUM_GROUPS)" | tee -a $LOGS_FILE
+    else
+        # This should be a DM
+        save_conversation "$group_id" "dm" 2
+        DMS_SAVED=$((DMS_SAVED + 1))
+        PROCESSED_DMS=$((PROCESSED_DMS + 1))
+        echo "    Classified as DM ($PROCESSED_DMS/$NUM_DMS)" | tee -a $LOGS_FILE
     fi
 done
 
@@ -238,19 +251,25 @@ echo "💾 Total conversations for load test: $GROUPS_SAVED groups, $DMS_SAVED D
 echo "➕ Adding inbox $INBOX_ID to group conversations..." | tee -a $LOGS_FILE
 
 # Add to groups only (skip DMs which already have the target)
-GROUP_COUNT=0
+# Use the same classification logic as above
+PROCESSED_GROUPS_ADD=0
+PROCESSED_DMS_ADD=0
+
 for group_id in "${ALL_GROUP_IDS[@]}"; do
-    MEMBER_COUNT=$(jq -r ".[] | select(.id == \"$group_id\") | .memberSize" $EXPORT)
-    
-    # Only add to groups (not DMs)
-    if [ "$MEMBER_COUNT" != "2" ]; then
-        GROUP_COUNT=$((GROUP_COUNT + 1))
-        echo "  Adding to group $GROUP_COUNT (ID: ${group_id:0:8}..., members: $MEMBER_COUNT)" | tee -a $LOGS_FILE
+    # Classify based on creation order
+    if [ $PROCESSED_GROUPS_ADD -lt $NUM_GROUPS ]; then
+        # This is a group - add the target inbox
+        PROCESSED_GROUPS_ADD=$((PROCESSED_GROUPS_ADD + 1))
+        echo "  Adding to group $PROCESSED_GROUPS_ADD (ID: ${group_id:0:8}...)" | tee -a $LOGS_FILE
         $CMD modify --inbox-id $INBOX_ID add-external "$group_id" 2>&1 | tee -a $LOGS_FILE || echo "  ⚠️  Failed to add to group" | tee -a $LOGS_FILE
+    else
+        # This is a DM - skip (already has target inbox)
+        PROCESSED_DMS_ADD=$((PROCESSED_DMS_ADD + 1))
+        echo "  Skipping DM $PROCESSED_DMS_ADD (ID: ${group_id:0:8}...) - already has target inbox" | tee -a $LOGS_FILE
     fi
 done
 
-echo "✅ DMs already include target inbox from creation, $GROUP_COUNT groups updated with target inbox" | tee -a $LOGS_FILE
+echo "✅ DMs already include target inbox from creation, $PROCESSED_GROUPS_ADD groups updated with target inbox" | tee -a $LOGS_FILE
 
 rm -f $EXPORT
 update_state
