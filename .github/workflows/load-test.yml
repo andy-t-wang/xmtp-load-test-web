@@ -46,6 +46,11 @@ on:
         description: "Unique test identifier"
         required: true
         type: string
+      use_existing:
+        description: "Use existing conversations instead of creating new ones"
+        required: false
+        type: string
+        default: "false"
 
 jobs:
   load-test:
@@ -63,6 +68,7 @@ jobs:
           echo "Groups: ${{ inputs.num_groups }}"
           echo "DMs: ${{ inputs.num_dms }}"
           echo "Inbox ID: ${{ inputs.inbox_id }}"
+          echo "Use existing: ${{ inputs.use_existing }}"
 
       - name: Checkout this repo
         uses: actions/checkout@v4
@@ -182,10 +188,11 @@ jobs:
           MESSAGES_PER_BATCH: ${{ inputs.messages_per_batch }}
           TEST_ID: ${{ inputs.test_id }}
           NUM_DMS: ${{ inputs.num_dms }}
+          USE_EXISTING: ${{ inputs.use_existing }}
           XDBG_PATH: ${{ env.LIBXMTP_PATH }}/target/release/xdbg
         run: |
-          chmod +x load_test_json.sh
-          ./load_test_json.sh "$INBOX_ID" "$NETWORK" "$INTERVAL" "$DURATION" "$NUM_GROUPS" "$MESSAGES_PER_BATCH" "$TEST_ID" "$NUM_DMS"
+          chmod +x enhanced_load_test.sh
+          ./enhanced_load_test.sh "$INBOX_ID" "$NETWORK" "$INTERVAL" "$DURATION" "$NUM_GROUPS" "$MESSAGES_PER_BATCH" "$TEST_ID" "$NUM_DMS" "$USE_EXISTING"
 
       - name: Upload Results
         uses: actions/upload-artifact@v4
