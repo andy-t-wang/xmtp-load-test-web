@@ -480,7 +480,6 @@ export default function TestForm({ onTestStart, disabled }: TestFormProps) {
             name="groupSize"
             id="groupSize"
             min="2"
-            max="50"
             value={formData.groupSize}
             onChange={handleChange}
             className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm border px-3 py-2"
