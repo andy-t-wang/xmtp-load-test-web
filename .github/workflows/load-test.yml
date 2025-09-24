@@ -87,9 +87,11 @@ jobs:
             echo "🔄 Cloning libxmtp repository..."
             git clone --depth 1 https://github.com/andy-t-wang/libxmtp.git libxmtp
           else
-            echo "✅ Using cached libxmtp repository"
+            echo "✅ Updating cached libxmtp repository"
             cd libxmtp
-            git pull --depth 1 origin main || echo "Pull failed, using cached version"
+            # Force fetch latest changes
+            git fetch --depth 1 origin main
+            git reset --hard origin/main
             cd ..
           fi
           cd libxmtp
