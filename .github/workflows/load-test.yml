@@ -116,9 +116,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ~/.rustup
-          key: ${{ runner.os }}-rust-toolchain-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-rust-toolchain-v2-clean-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-rust-toolchain-
+            ${{ runner.os }}-rust-toolchain-v2-clean-
 
       - name: Cache libxmtp build
         uses: actions/cache@v4
