@@ -79,7 +79,7 @@ jobs:
           path: libxmtp
           key: libxmtp-andy-repo-v7-refresh-${{ hashFiles('.github/workflows/load-test.yml') }}
           restore-keys: |
-            libxmtp-andy-repo-v3-
+            libxmtp-andy-repo-v7-refresh-
 
       - name: Clone libxmtp (if not cached)
         run: |
@@ -126,8 +126,7 @@ jobs:
           path: libxmtp/target
           key: ${{ runner.os }}-libxmtp-andy-build-v8-refresh-${{ hashFiles('libxmtp/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-libxmtp-andy-build-v4-
-            ${{ runner.os }}-libxmtp-andy-build-
+            ${{ runner.os }}-libxmtp-andy-build-v8-refresh-
 
       - name: Cache xdbg binary
         uses: actions/cache@v4
@@ -136,7 +135,7 @@ jobs:
           # Stable key that includes group naming and DM sync functionality
           key: ${{ runner.os }}-xdbg-andy-binary-v8-refresh
           restore-keys: |
-            ${{ runner.os }}-xdbg-andy-binary-v4-
+            ${{ runner.os }}-xdbg-andy-binary-v8-refresh-
 
       - name: Check if xdbg already built
         id: check_xdbg
